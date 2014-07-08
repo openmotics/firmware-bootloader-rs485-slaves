@@ -1,0 +1,957 @@
+'************************************************************************
+'Copyright (c) 2014 - OpenMotics <info@openmotics.com>
+
+'This file is part of OpenMotics.
+
+'OpenMotics is free software: you can redistribute it and/or modify
+'it under the terms of the GNU General Public License as published by
+'the Free Software Foundation, either version 3 of the License, or
+'(at your option) any later version.
+
+'OpenMotics is distributed in the hope that it will be useful,
+'but WITHOUT ANY WARRANTY; without even the implied warranty of
+'MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+'GNU General Public License for more details.
+
+'You should have received a copy of the GNU General Public License
+'along with OpenMotics.  If not, see <http://www.gnu.org/licenses/>.
+'************************************************************************
+
+'Firmware to be used with the OpenMotics 8 ports Input Module
+
+'Written in Pic Basic Pro 2.6 however it should be compatible with Pic Basic Pro 3.0 but this is not yet tested
+'Interrupt system of Darrel Taylor is used see http://darreltaylor.com/DT_INTS-18/home.html
+'For more information see wiki.openmotics.com
+
+@ CONFIG SOSCSEL=DIG
+
+DEFINE OSC 40
+
+version con 3
+firmware con 0
+built con 1
+
+DEFINE  USE_LOWPRIORITY  1
+INCLUDE "DT_INTS-18.bas"       ; Base Interrupt System
+INCLUDE "ReEnterPBP-18.bas"    ; Include if using PBP interrupts
+INCLUDE "ReEnterPBP-18LP.bas"  ; Include if using Low Pr. PBP INTS
+
+OSCCON.0=0 'external oscillator
+OSCCON.1=0
+OSCTUNE.6=1 'PLL enabled
+
+ANCON0=%00000000   'All ports configured as digital ports
+ANCON1=%00000000   'All ports configured as digital ports
+
+CCP2CON=0
+
+RS485_mode    var     PORTD.4        ' Mode for RS485 chip (send or receive)
+LED_red       VAR     PORTE.1   ' Led
+LED_logo      var     PORTA.3
+sda           var     PORTC.4
+scl           var     PORTC.3
+Button1       var     PORTB.1
+Button2       var     PORTB.0
+input1        var     PORTC.0
+input2        var     PORTC.1
+input3        var     PORTC.2
+input4        var     PORTD.0
+input5        var     PORTD.1
+input6        var     PORTD.2
+input7        var     PORTD.3
+input8        var     PORTC.5
+PowerOn       var     PORTD.6
+PowerOn2      var     PORTB.5   
+input                 PORTC.7   'RS485 Receive
+output                PORTC.6   'RS485 Transmit
+I2C_CLOCK_IO  var     PORTD.5
+LED_Pwr       var     PORTE.2
+Low LED_Pwr 
+
+output PowerOn
+output PowerOn2
+low PowerOn   'Switch Off 5V power (hardware V3)
+Low PowerOn2  '                    (hardware V4) 
+
+'hardware
+hardware var byte
+if PORTA.1=0 and PORTA.2=0 then
+  hardware=3
+endif  
+if PORTA.1=0 and PORTA.2=1 then
+  hardware=4
+endif 
+if PORTA.1=1 and PORTA.2=0 then
+  hardware=5
+endif 
+if PORTA.1=1 and PORTA.2=1 then
+  hardware=6
+endif
+
+'i2c --------------------------------------------------------------------------
+SSPADD.0=1  '100kHz
+SSPADD.1=1
+SSPADD.2=0
+SSPADD.3=0
+SSPADD.4=0
+SSPADD.5=1
+SSPADD.6=1
+SSPCON1=%00101000 'turn on MSSP and set for master mode i2c 
+
+'uart--------------------------------------------------------------------------
+low RS485_mode
+BAUDCON1.5=0 'receive data is not inverted
+BAUDCON1.3=1 'BRG16=1
+BAUDCON1.4=0 'idle state for Txd is 1
+SPBRGH1 = 0  '115200 baud
+SPBRG1 = 86
+RCSTA1 = %00010000
+TXSTA1 = %00000100
+BAUDCON2.5=0 'receive data is not inverted
+BAUDCON2.3=1 'BRG16=1
+BAUDCON2.4=0 'idle state for Txd is 1
+SPBRGH2 = 0  '115200 baud
+SPBRG2 = 86
+RCSTA2 = %00010000
+TXSTA2 = %00000100
+
+Mod_ID0 var     byte
+Mod_ID1 var     byte
+Mod_ID2 var     byte
+Mod_ID3 var     byte
+Mod_NE  var     byte        'N->New module,E->Existing module
+
+'Variables
+
+test_bit var bit
+x  var byte
+y  var byte
+z  var byte
+q  var byte
+s  var byte
+s1 var byte
+s2 var byte
+s3 var byte
+s4 var byte
+s5 var byte
+s6 var byte
+s7 var byte
+s8 var byte
+t_word var word
+PulseCounter var word[8]
+PulseCounter[0]=0
+PulseCounter[1]=0
+PulseCounter[2]=0
+PulseCounter[3]=0
+PulseCounter[4]=0
+PulseCounter[5]=0
+PulseCounter[6]=0
+PulseCounter[7]=0
+pc var byte
+pc=0
+i  var byte
+t  var byte
+rec var byte
+w1 var word
+tmp  var byte[8]
+test var byte
+reset_count var word
+reset_count=0
+OutUpdateAll var bit
+OutUpdateAll=1
+OutAlert var byte
+OutAlertCounter var word
+OutAlertUpdate var bit
+OutAlertOn var bit
+OutAlert=0
+OutAlertCounter=0
+OutAlertUpdate=0
+OutAlertOn=0
+timer var word
+timer=0
+indicate var byte
+InputState var byte
+InputState2 var byte
+InputPulseCounter var byte
+InputPulseCounterOld var byte
+InputStateOld var byte
+InputState=255
+InputStateOld=255
+InputPulseCounter=0
+InputPulseCounterOld=0
+TempInputState var bit[8]
+InputStateCounter var byte[8]
+InputStateBit var Bit[8]
+for t=0 to 7
+  TempInputState[t]=1
+  InputStateBit[t]=1
+next t
+CounterState var byte
+Counterstate=0
+LedCheckCounter var byte
+LedCheckCounter=0
+InputCheck var bit
+InputFilter var byte
+InputFilter=10
+
+i2ccont var byte     'chip address
+i2caddr var byte     'address within the chip to select data
+i2cdata var byte     'data to read or write
+i2cdataTemp var byte
+i2cMode var byte
+i2cAck var bit
+i2cInt var bit
+i2cMode=0
+i2cInt=0
+i2creadbit var bit
+i2cClock var bit
+i2cClock=0
+pcf8574 var bit
+eep_addr var word
+eep_addr_temp var word
+err var byte
+mode var byte
+mode="L"
+
+ComOK var bit
+ComOK=0
+
+Buffer con 180
+StackSer1 var byte[buffer]
+RecSer1 var bit   '=1 in receiving mode
+RecSerTemp1 var byte
+RecSerTemp2 var byte
+PointerSer1 var byte
+InterpreteSer1 var bit
+RecSer1=0
+PointerSer1=0
+InterpreteSer1=0
+ReceiveTemp var byte
+broadcast var bit
+counter var byte
+PortOld var byte[3]
+CRC var word
+
+i2cData0 var byte
+i2cData1 var byte
+i2cData2 var byte
+i2cMode=0
+i2cInt=0
+
+LedCounter var byte
+LedCounter=0
+LedAction var bit
+LedAction=0
+
+PowerSafe var bit
+PowerSafe=1   'Module in PowerSafe Mode (Leds off)
+
+high led_red
+input input1
+input input2
+input input3
+input input4
+input input5
+input input6
+input input7
+input input8
+
+input Button1
+input Button2
+input sda
+input scl
+
+
+'Define interrupts
+
+;----[High Priority Interrupts]-----------------------------------------------
+ASM
+INT_LIST  macro    ; IntSource,        Label,  Type, ResetFlag?
+        INT_Handler     RX1_INT,     _Receive1,    PBP,  no 
+        INT_Handler     RX2_INT,     _Receive2,    PBP,  no
+    endm
+    INT_CREATE               ; Creates the High Priority interrupt processor
+
+;----[Low Priority Interrupts]------------------------------------------------
+INT_LIST_L  macro  ; IntSource,        Label,  Type, ResetFlag?
+        INT_Handler     TMR0_INT,    _Timer0,      PBP,  yes       
+        INT_Handler     TMR2_INT,    _Timer2,      PBP,  yes 
+        INT_Handler     SSP_INT,     _SSP,         PBP,  no 
+    endm
+    INT_CREATE_L             ; Creates the Low Priority interrupt processor
+ENDASM
+
+T0CON=%10000001               ; T0 = 16-bit, 1:4 Prescaler
+T2CON=%00011111               ; Interrupt every 1.6ms
+
+
+@    INT_ENABLE  RX1_INT       ; Enable USART Receive interrupts
+@    INT_ENABLE  RX2_INT       ; Enable USART Receive interrupts
+@    INT_ENABLE  TMR0_INT      ; enable Timer 0 interrupts
+@    INT_ENABLE  TMR2_INT      ; enable Timer 2 interrupts
+@    INT_ENABLE  SSP_INT
+
+TMR0L=0     'reset value
+TMR0H=0
+T0CON.7=1   'timer 0 enabled
+PIE1.1=1    'timer 2 interrupt enabled
+T2CON.2=1   'start timer2
+PIE1.3=1    'enable SSP interrupt
+INTCON.6=1
+INTCON.7=1
+RCSTA1.7=1  'Enable UART1
+RCSTA1.4=0  'disable UART1 receiver
+PIE1.5=1    'Enable receive UART1 interrupt
+PIR1.5=0    'Clear RC1IF
+RCSTA1.4=1  'enable UART1 receiver
+TXSTA1.5=1  'enable UART1 transmit
+
+'Only use for debugging purposes
+RCSTA2.7=1  'Enable UART2
+RCSTA2.4=0  'disable UART2 receiver
+PIE3.5=1    'Enable receive UART2 interrupt
+PIR3.5=0    'Clear RC1IF
+TXSTA2.5=1  'enable UART2 transmit
+'hserout2 ["processor started, Hardware V",dec hardware,13,10]
+
+gosub check_startupreset  'check if reset 
+
+read 0,Mod_NE        'Mode_ID in eeprom controller
+read 1,Mod_ID0
+read 2,Mod_ID1
+read 3,Mod_ID2
+read 4,Mod_ID3
+Mod_ID0 = "I"        'This is an input module
+
+PCF8574_ADDRESS  con %01000000
+PCF8574A_ADDRESS con %01110000
+PCF8574i2ccont var byte
+PCF8574i2ccont=PCF8574_ADDRESS
+i2cdata=255
+gosub write_pcf8574
+if err=1 then 
+  PCF8574i2ccont=PCF8574A_ADDRESS  'if i2c address is not correct, take the other address
+  i2cdata=255
+  gosub write_pcf8574
+endif 
+
+'bootloader, see http://wiki.openmotics.com/index.php/Bootloader
+read 64,x    'Read Hardware version
+if x<>hardware then 
+  write 64,hardware
+endif
+read 65,x    'Read Major firmware version
+if x<>version then 
+  write 65,version
+endif
+read 66,x    'Read Minor firmware version
+if x<>firmware then 
+  write 66,firmware
+endif
+read 67,x    'Read Minor firmware version
+if x<>built then 
+  write 67,built
+endif 
+read 74,x    'Read Flashmode variable and put on 0 so the bootloader knows the app is running
+if x<>0 then 
+  write 74,0
+endif
+write 75,0    'Set Bootloader time on 0 seconds 
+
+high led_logo
+pause 400 
+
+'----------------------------------------------------------------------------
+' Main routine
+'---------------------------------------------------------------------------- 
+
+mainloop:    
+  gosub interprete_serial    'check information coming from the RS485 bus
+  gosub read_input2          'Read input state of the 8 inputs
+  gosub check_LedAction      'Set leds correctly
+  gosub Display_AlertLeds    'Check if any leds needs to flash, normal or inverted state
+  gosub check_SerialErrors   'Check if serial errors happened
+  if mode="I" then           'bus is in Initialization mode
+    gosub check_inputs       'during initialization, 2 inputs needs to be checked
+  endif
+Goto mainloop
+
+'--------------------------------------------------------------------------
+' Interrupt routines
+'--------------------------------------------------------------------------
+
+Receive1:                  'RS485 receive routine
+  recsertemp1=recsertemp2  'Keep previous character also
+  recsertemp2=RCREG1
+  if recser1=1 then        'Receiving?
+    StackSer1[PointerSer1]=recsertemp2
+    ReceiveTemp=pointerser1-1
+    if stackser1[ReceiveTemp]=13 and stackser1[pointerser1]=10 then
+      RCSTA1.4=0           'disable receiving serial 1
+      RecSer1=0            'stop receiving ser1 and buffering
+      InterpreteSer1=1
+    endif
+    pointerser1=pointerser1+1
+    if pointerser1>(Buffer-2) then  'Buffer overflow -> stop receiving and interprete
+      RCSTA1.4=0           'disable receiving serial 1
+      RecSer1=0            'stop receiving ser1 and buffering
+      InterpreteSer1=1
+    endif  
+  else                     'Not in receiving mode
+    if recsertemp1="S" and recsertemp2="T" then
+      Pointerser1=0
+      recser1=1            'start receiving ser1
+    endif
+  endif
+  RCSTA1.4=1               'enable UART1 receiver
+@ INT_RETURN
+
+Receive2:
+  RCSTA1.4=0  'disable UART1 receiver
+  rec=RCREG2
+  RCSTA1.4=1  'enable UART1 receiver
+@ INT_RETURN
+
+Timer0:    'interrupt after 26ms when i2c is active
+     T0CON.7=0  'timer 0 disabled
+     INTCON.2=0 'interrupt flag cleared
+     i2cmode=0  'stop
+     err=1      'error
+@ INT_RETURN
+
+Timer2:   'interrupt every 1,6ms  
+  T2CON.2=0
+  PIR1.1=0   'clear timer2 interrupt flag 
+  timer=timer+1
+  LedCheckCounter=LedCheckCounter+1   'update leds every 100 ms
+  gosub read_input
+  InputCheck=1
+  if timer=80 then 
+    high led_logo
+    OutAlertOn=0
+    if OutAlertCounter>0 then OutAlertUpdate=1
+  endif  
+  if timer=1000 then
+    timer=0
+    low led_logo
+    OutAlertOn=1
+    ComOK=0
+    if OutAlertCounter>0 then OutAlertUpdate=1
+  endif 
+  if LedCounter>0 then 
+    LedCounter=LedCounter-1
+    if LedCounter=0 then LedAction=1
+  endif  
+  if outalertcounter>0 then OutAlertCounter=Outalertcounter-1   
+  T2CON.2=1
+@ INT_RETURN
+
+Timer4:        'interrupt every 6.5 micro seconds
+  PIE4.7=0     'Disable timer 4 interrupt
+  PIR4.7=0     'Clear timer 4 interrupt flag
+  PIE4.7=1     'Enable timer 4 interrupt
+return
+
+SSP:
+  PIE1.3=0   'disable interrupt
+  i2cMode=i2cMode+1
+  i2cInt=1
+  PIR1.3=0   'clear interrupt flag
+  PIE1.3=1   'enable interrupt  
+@ INT_RETURN
+
+'---------------------------------------------------------------------------
+' RS485 routines
+'---------------------------------------------------------------------------
+
+Interprete_Serial: 'Interprete data coming from the RS485 bus
+  if InterpreteSer1=1 then
+    RCSTA1.4=0               'disable receiving serial 1  
+    InterpreteSer1=0
+    if pointerser1>8 then   
+      if stackser1[0]="I" then  'input module addressed ?
+        gosub Check_input_Module  
+      elseif stackser1[0]=0 and stackser1[1]=0 and stackser1[2]=0 and stackser1[3]=0 then    'Broadcast message
+         if stackser1[4]="L" and stackser1[5]="L" then   'Bus in Live mode
+           if mode="I" then 
+             high led_red
+           endif  
+           mode="L"
+         elseif stackser1[4]="I" and stackser1[5]="I" then   'Bus in Initialize mode
+           gosub generate_id
+           if mode="L" then 
+             low led_red
+           endif
+           mode="I"
+         elseif stackser1[4]="N" and stackser1[5]="N" then   'Module in Normal state (Leds on)
+           PowerSafe=0
+           OutAlertUpdate=1
+         elseif stackser1[4]="S" and stackser1[5]="S" then   'Module in Power Safe state (Leds off)
+           PowerSafe=1
+           OutAlertUpdate=1
+         elseif stackser1[4]="C" and stackser1[5]="C" then   'Clear Pulse counters         
+           PulseCounter[0]=0
+           PulseCounter[1]=0
+           PulseCounter[2]=0
+           PulseCounter[3]=0
+           PulseCounter[4]=0
+           PulseCounter[5]=0
+           PulseCounter[6]=0
+           PulseCounter[7]=0 
+         'testmode 
+         elseif stackser1[4]="T" and stackser1[5]="M" then  'Instruction only requested in Test Mode  
+           indicate=255
+           Powersafe=0
+           toggle led_red
+           Gosub Test_instructions             
+         endif           
+      elseif mode="I" and stackser1[0]="A" and stackser1[1]="D" then   'activate device
+         gosub activate_device
+      endif
+    endif
+    pointerser1=0
+    RCSTA1.4=1            'enable receiving serial 1
+  endif
+return
+
+'testmode
+Test_instructions:
+  if stackser1[6]="V" then  'Firmware version
+    high RS485_mode     'send mode
+    hserout ["AAARC",0,0,0,0,"V",Mod_ID0,hardware,version,firmware,built,13,10,13,10]
+    low RS485_mode      'receive mode
+  elseif stackser1[6]="I" then  'Provide Input state
+    'here
+    high RS485_mode     'send mode
+    hserout ["AAARC",0,0,0,0,"I",InputState,13,10,13,10]
+    low RS485_mode      'receive mode 
+  elseif stackser1[6]="s" then  'Set 5V output
+    if stackser1[7]=0 then      'switch off 5V
+      low PowerOn               'Switch off 5V power (hardware V3)
+      Low PowerOn2              '                    (hardware V4)     
+    else                        'switch on 5V
+      high PowerOn              'Switch on 5V power (hardware V3)
+      high PowerOn2             '                   (hardware V4)    
+    endif
+  elseif stackser1[6]="C" then  'Set Clock output
+    if stackser1[7]=0 then      'switch off CLK line
+      high I2C_CLOCK_IO                   
+    else                        'switch on CLK line
+      low I2C_CLOCK_IO            
+    endif    
+  elseif stackser1[6]="B" then  'Provide Button state
+    'here
+    high RS485_mode     'send mode
+    hserout ["AAARC",0,0,0,0,"B",1,Button1,13,10,13,10]
+    low RS485_mode      'receive mode                                   
+  endif
+return
+
+Check_input_module:
+  if stackser1[0]=Mod_id0 and stackser1[1]=Mod_id1 and stackser1[2]=Mod_id2 and stackser1[3]=Mod_id3 then
+    'bootloader
+    if stackser1[4]="F" and stackser1[5]="V" then      'Request Firmware Version
+      s1="V"
+      gosub send_F_response
+    elseif stackser1[4]="F" and stackser1[5]="R" then  'Perform Reset of the module
+      write 75,stackser1[6]                            'Write number of seconds that this module must remain in bootloader mode
+      s1="R"
+      gosub send_F_response
+      asm
+        reset
+      endasm  
+    else
+    
+      if stackser1[4]="I" then 
+        indicate=Stackser1[5]
+        if indicate<8 then     'Any flashing of indication leds needed?
+          OutAlert=%00000001<<indicate
+          OutAlertCounter=12308  '20 seconden
+        endif
+      endif  
+      if stackser1[6]="F" then  'Filter Value how many times the same input must be detected before seen as input change
+        InputFilter=Stackser1[7]
+      else
+        InputFilter=10
+      endif   
+      ComOK=1    
+      s1=InputState
+      s2="P"     'Pulse counter information
+      t_word=PulseCounter[pc]
+      s3=pc
+      s4=t_word.byte1
+      s5=t_word.byte0
+      s6="C"         'CRC check
+      t_word=s1+s2+s3+s4+s5+s6
+      s7=t_word.byte1
+      s8=t_word.byte0    
+      gosub rs485_send
+      pc=pc+1
+      if pc>7 then pc=0   'maximum 8 (0-7) pulsecounters can be sent to the Master
+    endif
+  endif  
+  if mode="L" and ComOK=1 then led_red=led_logo        
+return
+
+'bootloader
+send_F_response:
+  high RS485_mode 'send mode
+  if s1="V" then  'Firmware version
+    CRC=Mod_id0+Mod_id1+Mod_id2+Mod_id3+"F"+"V"+255+hardware+version+firmware+built
+    hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","V",255,hardware,version,firmware,built,0,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+  else            'Reset
+    CRC=Mod_id0+Mod_id1+Mod_id2+Mod_id3+"F"+"R"+255
+    hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","R",255,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+  endif
+  low RS485_mode  'Receive mode
+return
+
+check_SerialErrors:
+  if RCSTA1.2=1 then  'frame error bit
+    x=RCREG1
+  endif
+  if RCSTA1.1=1 then  'Overrun Error bit
+    RCSTA1.4=0    'disable receiver
+    pause 2
+    RCSTA1.4=1    'enable receiver
+  endif
+return
+
+Read_Input:
+  InputPulseCounter.bit7=input8
+  InputPulseCounter.bit6=input7
+  InputPulseCounter.bit5=input6
+  InputPulseCounter.bit4=input5
+  InputPulseCounter.bit3=input4
+  InputPulseCounter.bit2=input3
+  InputPulseCounter.bit1=input2
+  InputPulseCounter.bit0=input1
+  if InputPulseCounter<>InputPulseCounterOld then
+    CounterState=InputPulseCounter^InputPulseCounterOld
+    CounterState=CounterState&InputPulseCounterOld
+    if CounterState>0 then   'Input found that went from 1 to 0 (from OFF to ON)
+      for z=0 to 7
+        y=CounterState>>z
+        if y.bit0=1 then
+          PulseCounter[z]=PulseCounter[z]+1
+        endif
+      next z
+    endif
+    InputPulseCounterOld=InputPulseCounter
+  endif
+return
+
+Read_Input2:
+  if InputCheck=1 then
+    InputCheck=0
+    TempInputState[7]=input8
+    TempInputState[6]=input7
+    TempInputState[5]=input6
+    TempInputState[4]=input5
+    TempInputState[3]=input4
+    TempInputState[2]=input3
+    TempInputState[1]=input2
+    TempInputState[0]=input1 
+    InputState2=0    
+    for t=0 to 7
+      x=InputState>>t
+      if TempInputstate[t]<>x.bit0 then               'Input has changed
+        InputStateCounter[t]=InputStateCounter[t]+1
+        if InputStateCounter[t]>InputFilter then  'Change Inputstate
+          InputStateBit[t]=TempInputstate[t]
+        endif
+      else                                            'Input is the same
+        InputStateCounter[t]=0
+        InputStateBit[t]=TempInputstate[t]
+      endif
+      y=InputStateBit[t]<<t
+      InputState2=InputState2|y
+    next t
+    InputState=InputState2
+    if InputState<>InputStateOld then
+      OutAlertUpdate=1
+    endif
+    InputStateOld=InputState
+  endif  
+return
+
+Display_AlertLeds:
+  if ledCheckCounter>35 then 'Only update leds every 60ms
+    LedCheckCounter=0
+    if OutalertUpdate=1 then 'Led needs to be updated
+      OutAlertUpdate=0
+      if OutAlertOn=0 then 'Normal led condition
+        x=Inputstate
+        gosub set_leds
+        gosub write_pcf8574 
+      else                 'Inverted led condition
+        y=InputState^OutAlert
+        x=y
+        gosub set_leds
+        gosub write_pcf8574
+      endif
+    endif
+  endif  
+return
+
+set_leds:
+  if PowerSafe=1 then  'Module is in power safe mode
+    x=255              'switch off leds
+  endif 
+  i2cdata=x
+return
+
+
+generate_ID:
+if Mod_NE<>"E" then   'Not yet a unique code
+  Mod_NE="N"
+  for q=0 to 2
+    random w1                              'generate random ID
+    if w1.byte0<>255 and w1.byte0<>0 then  'Random value if ok
+      tmp[q]=w1.byte0
+    else                                   'Random value is not ok
+      tmp[q]=171+q                         'Random value (My bithday :))
+    endif
+  next q
+  Mod_ID1=tmp[0]
+  Mod_ID2=tmp[1]
+  Mod_ID3=tmp[2]
+endif
+return
+
+check_startupreset:
+  for s=0 to 40
+    if button1=0 then test=1 
+    if button1=1 then s=40 : test=0  'button not pressed long enough        
+    pause 50
+  next s
+  if test>0 then
+    write 0,255        'Mode_ID in eeprom controller
+    write 1,255
+    write 2,255
+    write 3,255
+    write 4,255
+    for s=0 to 3
+      low led_red
+      pause 100
+      high led_red
+      pause 100 
+    next s 
+  endif    
+return
+
+check_inputs: 'during initialization, inputs needs to be checked
+  if Button1=0 then    'initialization button is pressed
+    if reset_count=0 then   'Message is sent for the first time
+      reset_count=5
+      s1=0
+      s2=Mod_NE   'E->existing,N->New
+      gosub rs485_send
+    endif
+  else           'initialization button is not pressed
+    if reset_count>0 then reset_count=reset_count-1
+    if Mod_NE="E" and inputstate<>255 then  'Module is existing and an input switch is pressed
+      if (reset_count=0) then   'Do not generate this message too often
+        reset_count=35000
+        s1=InputState  'Sent Inputstate
+        s2=Mod_NE      'E->existing,N->New
+        pause 5
+        gosub rs485_send
+      endif
+    endif     
+  endif
+return
+
+rs485_send:
+  if mode="L" then 
+    high led_red
+    LedAction=0
+    Ledcounter=20
+  endif  
+  pauseus 1350
+  high RS485_mode     'send mode
+  hserout ["AAARC",Mod_ID0,Mod_ID1,Mod_ID2,Mod_ID3,s1,s2,s3,s4,s5,s6,s7,s8,13,10,13,10]
+  low RS485_mode      'receive mode 
+return
+
+Check_LedAction:
+  if LedAction=1 and mode="L" then
+    high led_red
+    LedAction=0
+    Ledcounter=0
+  endif
+return
+
+
+activate_device:
+  if Mod_NE="N" and stackser1[2]=Mod_ID0 and stackser1[3]=Mod_ID1 and stackser1[4]=Mod_ID2 and stackser1[5]=Mod_ID3 then 'received ID is the new 
+    Mod_NE="E"
+    write 0,Mod_NE        'Mode_ID in eeprom controller
+    write 1,Mod_ID0
+    write 2,Mod_ID1
+    write 3,Mod_ID2
+    write 4,Mod_ID3       
+  endif   
+return
+
+
+
+'------------------------------------------------------------------------------
+' I2C subroutines
+'------------------------------------------------------------------------------
+
+write_eeprom: 
+  i2ccont = %10100000
+  i2cClock=0
+  gosub i2c_write
+return
+
+read_eeprom:
+  i2ccont = %10100001
+  i2cClock=0  
+return
+
+write_i2c_2:
+  i2ccont=%11010000
+  i2cClock=1
+  eep_addr.byte1=i2caddr
+  gosub i2c_write
+return
+
+read_i2c_2:
+  i2ccont=%11010001
+  i2cClock=1
+  eep_addr.byte1=i2caddr
+  gosub i2c_read 
+return
+
+check_i2c_acknowledge:
+  if SSPCON2.6=0 then 'Acknowledge received from slave
+    i2cAck=1 'Acknowledge received
+    SSPCON2.6=1
+  else
+    i2cAck=0
+  endif 
+return
+
+write_pcf8574:
+  i2ccont=PCF8574i2ccont
+  i2cClock=1
+  pcf8574=1
+  gosub i2c_write
+return
+
+i2c_read:
+  if i2ccont.bit0=0 then 'r/w bit is wrong, correct
+    i2ccont.bit0=1
+  endif
+  i2creadbit=1
+  i2cint=1
+  i2cmode=1
+  TMR0L=0
+  TMR0H=0
+  T0CON.7=1  'timer 0 enabled
+  gosub i2c_routine_read
+return
+
+i2c_write:
+  if i2ccont.bit0=1 then 'r/w bit is wrong, correct
+    i2ccont.bit0=0
+  endif
+  i2creadbit=0
+  i2cint=1
+  i2cmode=1
+  TMR0L=0
+  TMR0H=0  
+  T0CON.7=1  'timer 0 enabled                    
+  gosub i2c_routine_write  
+return
+
+i2c_routine_write:
+  while (i2cMode>0) 
+    if i2cInt=1 then   'i2c chip is ready for next instruction
+      i2cInt=0  
+      gosub i2cPhase1    
+      if i2cMode=5 then 'check acknowledge and send data   
+        gosub check_i2c_acknowledge
+        if i2cAck=1 then
+          SSPBUF=i2cData
+        endif  
+      endif
+      if i2cMode=6 then 'check acknowledge and sent stop   
+        gosub check_i2c_acknowledge
+        if i2cAck=1 then
+          SSPCON2.2=1
+        endif     
+      endif
+      if i2cMode=7 then 'end transmission 
+        i2cMode=0
+        T0CON.7=0       'stop timer0
+        err=0
+        if i2cClock=0 then pause 5 
+      endif    
+    endif
+  wend      
+return
+
+i2c_routine_read:
+  while (i2cMode>0) 
+    if i2cInt=1 then   'i2c chip is ready for next instruction
+      i2cInt=0  
+      gosub i2cPhase1
+      if i2cMode=5 then 'generate start condition
+        gosub check_i2c_acknowledge
+        if i2cAck=1 then      
+          SSPCON2.0=1  'start
+        endif  
+      endif
+      if i2cMode=6 then 'shift out i2c control byte
+        SSPBUF=i2ccont
+      endif 
+      if i2cMode=7 then
+        SSPCON2.3=1    'enable receiving
+      endif         
+      if i2cMode=8 then 'check acknowledge and receive data 
+          i2cdata=SSPBUF
+          i2cMode=9 
+      endif
+      if i2cMode=9 then 'sent stop   
+        SSPCON2.2=1     
+      endif
+      if i2cMode=10 then 'end transmission 
+        i2cMode=0
+        T3CON.0=0       'stop timer3
+        err=0
+      endif    
+    endif
+  wend      
+return
+
+i2cPhase1:
+      if i2cMode=1 then 'generate start condition
+        SSPCON2.0=1
+      endif
+      if i2cMode=2  then 'shift out i2c control byte
+        SSPBUF=i2ccont-i2creadbit  'when reading i2c, you first need to write
+      endif
+      if i2cMode=3 then 'check acknowledge and shift out i2c high address   
+        if pcf8574=0 then
+          gosub check_i2c_acknowledge
+          if i2cAck=1 then
+            SSPBUF=eep_addr.byte1 'high address
+          endif
+        else  'no need to sent eeprom address to a PCF8574
+          i2cmode=5
+        endif    
+      endif
+      if i2cMode=4 then 'check acknowledge and shift out i2c low address  
+        if i2cClock=1 then  'Clock IC has only 8bits address
+          i2cmode=5
+        else
+          SSPBUF=eep_addr.byte0 'low address
+        endif  
+      endif
+return
+
+   
+End

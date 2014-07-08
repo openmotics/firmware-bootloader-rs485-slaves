@@ -1,0 +1,1748 @@
+'************************************************************************
+'Copyright (c) 2014 - OpenMotics <info@openmotics.com>
+
+'This file is part of OpenMotics.
+
+'OpenMotics is free software: you can redistribute it and/or modify
+'it under the terms of the GNU General Public License as published by
+'the Free Software Foundation, either version 3 of the License, or
+'(at your option) any later version.
+
+'OpenMotics is distributed in the hope that it will be useful,
+'but WITHOUT ANY WARRANTY; without even the implied warranty of
+'MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+'GNU General Public License for more details.
+
+'You should have received a copy of the GNU General Public License
+'along with OpenMotics.  If not, see <http://www.gnu.org/licenses/>.
+'************************************************************************
+
+'Firmware to be used with the OpenMotics 8 ports Temperature Module
+
+'Written in Pic Basic Pro 2.6 however it should be compatible with Pic Basic Pro 3.0 but this is not yet tested
+'Interrupt system of Darrel Taylor is used see http://darreltaylor.com/DT_INTS-18/home.html
+'Very low speed i2c is implemented to read out the i2c sensors connected on this module
+'For more information see wiki.openmotics.com
+
+@ CONFIG SOSCSEL=DIG
+
+DEFINE OSC 40
+
+version con 3
+firmware con 0
+built con 1
+
+DEFINE  USE_LOWPRIORITY  1
+INCLUDE "DT_INTS-18.bas"       ; Base Interrupt System
+INCLUDE "ReEnterPBP-18.bas"    ; Include if using PBP interrupts
+INCLUDE "ReEnterPBP-18LP.bas"  ; Include if using Low Pr. PBP INTS
+
+OSCCON.0=0 'external oscillator
+OSCCON.1=0
+OSCTUNE.6=1 'PLL enabled
+
+'hardware
+pause 400   'Please delete other pause 
+hardware var byte
+hardware=4
+RS485_mode    var     PORTD.4        ' Mode for RS485 chip (send or receive)
+I2C_CLOCK_IO  var     PORTD.5
+PowerOn       var     PORTD.6
+PowerOn2      var     PORTB.5
+LED_red       VAR     PORTE.1   ' Led
+LED_green     var     PORTE.2
+LED_logo      var     PORTA.3
+sda           var     PORTC.4
+scl           var     PORTC.3
+Button1       var     PORTB.1
+Button2       var     PORTB.0
+input1        var     PORTC.0
+input1tris    var     TRISC.0
+input2        var     PORTC.1
+input2tris    var     TRISC.1
+input3        var     PORTC.2
+input3tris    var     TRISC.2
+input4        var     PORTD.0
+input4tris    var     TRISD.0
+input5        var     PORTD.1
+input5tris    var     TRISD.1
+input6        var     PORTD.2
+input6tris    var     TRISD.2
+input7        var     PORTD.3
+input7tris    var     TRISD.3
+input8        var     PORTC.5
+input8tris    var     TRISC.5    
+input                 PORTC.7
+output                PORTC.6
+
+ANCON0=%00000000   'All ports configured as digital ports
+ANCON1=%00000000   'All ports configured as digital ports
+
+CCP2CON=0
+
+'i2c --------------------------------------------------------------------------
+SSPADD.0=1  '100kHz
+SSPADD.1=1
+SSPADD.2=0
+SSPADD.3=0
+SSPADD.4=0
+SSPADD.5=1
+SSPADD.6=1
+SSPCON1=%00101000 'turn on MSSP and set for master mode i2c 
+
+'uart--------------------------------------------------------------------------
+low RS485_mode
+BAUDCON1.5=0 'receive data is not inverted
+BAUDCON1.3=1 'BRG16=1
+BAUDCON1.4=0 'idle state for Txd is 1
+SPBRGH1 = 0  '115200 baud
+SPBRG1 = 86
+RCSTA1 = %00010000
+TXSTA1 = %00000100
+BAUDCON2.5=0 'receive data is not inverted
+BAUDCON2.3=1 'BRG16=1
+BAUDCON2.4=0 'idle state for Txd is 1
+SPBRGH2 = 0  '115200 baud
+SPBRG2 = 86
+RCSTA2 = %00010000
+TXSTA2 = %00000100
+
+'Variables
+
+Mod_ID0 var     byte
+Mod_ID1 var     byte
+Mod_ID2 var     byte
+Mod_ID3 var     byte
+Mod_NE  var     byte        'N->New module,E->Existing module
+InputState var byte
+InputState=0
+
+test_bit var bit
+ComOK var bit
+ComOK=0
+x  var byte
+y  var byte
+z var byte
+q  var byte
+s  var byte
+s1 var byte
+s2 var byte
+i  var byte
+ii var byte
+w1 var word
+tmp  var byte[8]
+test var byte
+counter2 var word
+counter2=0
+reset_count var word
+reset_count=0
+OutUpdateAll var bit
+OutUpdateAll=1
+LedAlert var byte
+LedAlertCounter var word
+LedAlertUpdate var bit
+LedAlertOn var bit
+LedAlert=0
+LedAlertCounter=0
+LedAlertUpdate=0
+LedAlertOn=0
+timer var word
+timer=0
+indicate var byte
+LedState var byte
+LedStateOld var byte
+LedState=0
+LedStateOld=0
+InputCheckCounter var byte
+InputCheckCounter=0
+SensorMode var byte
+SensorMode=1
+CRC var word
+
+i2ccont var byte     'chip address
+i2caddr var byte     'address within the chip to select data
+i2cdata var byte     'data to read or write
+i2cdataTemp var byte
+i2cMode var byte
+i2cAck var bit
+i2cInt var bit
+i2cMode=0
+i2cInt=0
+i2creadbit var bit
+i2cClock var bit
+i2cClock=0
+pcf8574 var bit
+eep_addr var word
+eep_addr_temp var word
+err var byte
+mode var byte
+mode="L"
+
+PowerSafe var bit
+PowerSafe=1   'Module in PowerSafe Mode (Leds off)
+
+temp_hum var word
+
+SensorLedState var byte
+SensorLedState=255
+SensorLedOff var bit
+SensorLedOff=1
+
+I2C_PART_IDLE       CON 0
+I2C_STATE_START     CON 1
+I2C_STATE_STOP      CON 2
+I2C_STATE_RESTART   CON 3
+I2C_STATE_READBYTE  CON 4
+I2C_STATE_WRITEBYTE CON 5
+  
+I2C_STATE VAR BYTE
+
+I2C_STATE_IDLE      CON  1
+I2C_STATE_GET_TEMP  CON  2
+I2C_STATE_GET_HUM   CON  3
+I2C_STATE_GET_ADC   CON  4
+I2C_STATE_BUSY      CON  5
+I2C_STATE_SET_LED   CON  6
+  
+I2C_STATE_BYTE VAR BYTE
+
+I2C_STATE_DONE          CON  1
+                 
+I2C_STATE_WRITE_START   CON  10
+I2C_STATE_WRITE_ADDR    CON  11
+I2C_STATE_WRITE_BYTE1   CON  12
+I2C_STATE_WRITE_BYTE2   CON  13
+I2C_STATE_WRITE_STOP    CON  14
+I2C_STATE_WRITE_END     CON  15
+
+I2C_STATE_READ_START    CON  20
+I2C_STATE_READ_ADDR     CON  21
+I2C_STATE_READ_POINTER  CON  22
+I2C_STATE_READ_RESTART  CON  23
+I2C_STATE_READ_ADDR2    CON  24
+I2C_STATE_READ_BYTE1    CON  25
+I2C_STATE_READ_BYTE2    CON  26
+I2C_STATE_READ_STOP     CON  27
+I2C_STATE_READ_END      CON  28
+
+I2C_ADC_STATE_WRITE_START 	CON  40
+I2C_ADC_STATE_WRITE_ADDR	CON  41
+I2C_ADC_STATE_WRITE_BYTE1 	CON  42  
+I2C_ADC_STATE_WRITE_BYTE2 	CON  43  
+I2C_ADC_STATE_WRITE_STOP	CON  44
+I2C_ADC_STATE_READ_START	CON  45    
+I2C_ADC_STATE_READ_ADDR   	CON  46  
+I2C_ADC_STATE_READ_POINTER 	CON  47 
+I2C_ADC_STATE_READ_RESTART 	CON  48 
+I2C_ADC_STATE_READ_ADDR2  	CON  49  
+I2C_ADC_STATE_READ_BYTE1  	CON  50  
+I2C_ADC_STATE_READ_BYTE2  	CON  51  
+I2C_ADC_STATE_READ_STOP   	CON  52  
+I2C_ADC_STATE_READ_END    	CON  53  
+
+I2C_HUM_STATE_READ_START1 	CON  60
+I2C_HUM_STATE_READ_ADDR  	CON  61
+I2C_HUM_STATE_READ_STOP1 	CON  62
+I2C_HUM_STATE_DELAY			CON  63
+I2C_HUM_STATE_READ_START2 	CON  64
+I2C_HUM_STATE_READ_ADDR2    CON  65
+I2C_HUM_STATE_READ_BYTE1    CON  66
+I2C_HUM_STATE_READ_BYTE2    CON  67
+I2C_HUM_STATE_READ_BYTE3    CON  68
+I2C_HUM_STATE_READ_BYTE4    CON  69
+I2C_HUM_STATE_READ_STOP2  	CON  70
+I2C_HUM_STATE_READ_END		CON  71
+
+I2C_LED_STATE_WRITE_START     CON 80 
+I2C_LED_STATE_WRITE_ADDR      CON 81
+I2C_LED_STATE_WRITE_POINTER   CON 82
+I2C_LED_STATE_WRITE_BYTE1     CON 83
+I2C_LED_STATE_WRITE_BYTE2     CON 84
+I2C_LED_STATE_WRITE_STOP      CON 85
+I2C_LED_STATE_WRITE_START2    CON 86
+I2C_LED_STATE_WRITE_ADDR2     CON 87
+I2C_LED_STATE_WRITE_POINTER2  CON 88
+I2C_LED_STATE_WRITE_BYTE21    CON 89
+I2C_LED_STATE_WRITE_BYTE22    CON 90
+I2C_LED_STATE_WRITE_STOP2     CON 91
+I2C_LED_STATE_WRITE_END       CON 92
+
+I2C_STATE_BIT  VAR BYTE
+I2C_PART VAR BYTE
+I2C_STATE_BIT_PART VAR BYTE
+I2C_DATA1_IO        var byte
+I2C_DATA1_TRIS      var byte
+I2C_CLOCK_TRIS      var TRISD.5     
+I2C_BYTE1_IO VAr byte
+I2C_STATE_BIT_COUNT var byte
+
+Ack        VAR bit[8]
+ReadByte   VAR byte[8]
+WriteByte  VAR byte[8]
+
+tempdata1  VAR byte[8]         
+tempdata2  VAR byte[8]
+tempstatus VAR Bit[8]       '1=ok, 0=nok
+tempwrite1 VAR BYTE[8]
+tempwrite2 VAR BYTE[8]
+
+humdata1   VAR byte[8] 
+humdata2   VAR byte[8] 
+humdata3   VAR byte[8] 
+humdata4   VAR byte[8] 
+humstatus  VAR Bit[8]       '1=ok, 0=nok
+
+adcdata1   VAR byte[8] 
+adcdata2   VAR byte[8] 
+adcstatus  VAR Bit[8]       '1=ok, 0=nok
+
+
+sign var bit
+Temperature_Refresh var bit
+Led_Refresh var bit
+Humidity_Refresh var bit
+ADC_Refresh var bit
+
+
+I2C_CLOCK_TRIS = 0            'clock in active state
+I2C_CLOCK_IO = 0
+I2C_DATA1_TRIS = 255          'data in passive state
+gosub write_I2C_DATA1_TRIS
+
+I2C_ACK VAR byte              'send ack?
+
+I2C_ADDRESS_TEMP CON %10010000       'address
+I2C_ADDRESS_HUM  CON %01001110
+I2C_ADDRESS_ADC  CON %10101000
+
+
+Buffer con 180
+StackSer1 var byte[buffer]
+RecSer1 var bit   '=1 in receiving mode
+RecSerTemp1 var byte
+RecSerTemp2 var byte
+PointerSer1 var byte
+InterpreteSer1 var bit
+RecSer1=0
+PointerSer1=0
+InterpreteSer1=0
+ReceiveTemp var byte
+broadcast var bit
+counter var byte
+rec var byte
+
+HumDelay VAR BYTE
+
+i2cData0 var byte
+i2cData1 var byte
+i2cData2 var byte
+i2cMode=0
+i2cInt=0
+
+LedCounter var byte
+LedCounter=0
+LedAction var bit
+LedAction=0
+
+Temperature var byte[8]
+TemperatureOld var byte[8]
+TemperatureCalc var byte
+TemperatureError var byte[8]
+Humidity   var byte[8]
+AdcValue   var byte[8]
+for i=0 to 7
+  Temperature[i]=255  'sensor not found
+  TemperatureOld[i]=244
+  Humidity[i]=255     'sensor not found
+  AdcValue[i]=255     'sensor not found
+  TemperatureError[i]=0
+next i
+
+
+input input1
+input input2
+input input3
+input input4
+input input5
+input input6
+input input7
+input input8
+
+input Button1
+input Button2
+input sda
+input scl
+
+LED_Pwr    var  PORTE.2
+Low LED_Pwr
+PowerState var bit
+high led_red
+output PowerOn
+output PowerOn2
+low poweron   'Switch OFF 5V power (hardware V3)
+low poweron2  '                    (hardware V4)
+PowerState=0
+
+PowerCount var word
+PowerCheck var bit
+PowerCount=0
+PowerCheck=0
+PowerTimer var word
+PowerTimer=0
+PowerMinute var word
+PowerMinute=0
+
+
+;----[High Priority Interrupts]-----------------------------------------------
+ASM
+INT_LIST  macro    ; IntSource,        Label,  Type, ResetFlag?
+        INT_Handler     RX1_INT,     _Receive1,    PBP,  no 
+    endm
+    INT_CREATE               ; Creates the High Priority interrupt processor
+
+;----[Low Priority Interrupts]------------------------------------------------
+INT_LIST_L  macro  ; IntSource,        Label,  Type, ResetFlag?
+        INT_Handler     TMR0_INT,    _Timer0,      PBP,  yes       
+        INT_Handler     TMR2_INT,    _Timer2,      PBP,  yes 
+        INT_Handler     SSP_INT,     _SSP,         PBP,  no 
+    endm
+    INT_CREATE_L             ; Creates the Low Priority interrupt processor
+ENDASM
+
+
+T0CON=%10000001               ; T0 = 16-bit, 1:4 Prescaler 
+T2CON=%00011111
+
+@    INT_ENABLE  RX1_INT       ; Enable USART Receive interrupts
+@    INT_ENABLE  TMR0_INT      ; enable Timer 0 interrupts 
+@    INT_ENABLE  TMR2_INT      ; enable Timer 2 interrupts
+@    INT_ENABLE  SSP_INT
+
+TMR0L=0     'reset value
+TMR0H=0
+T0CON.7=1   'timer 0 enabled
+PIE1.1=1    'timer 2 interrupt enabled
+T2CON.2=1   'start timer2
+PIE1.3=1    'enable SSP interrupt
+INTCON.6=1
+INTCON.7=1
+RCSTA1.7=1  'Enable UART1
+RCSTA1.4=0  'disable UART1 receiver
+PIE1.5=1    'Enable receive UART1 interrupt
+PIR1.5=0    'Clear RC1IF
+RCSTA1.4=1  'disable UART1 receiver
+TXSTA1.5=1  'enable UART1 transmit
+
+'Only use for debugging purposes
+'RCSTA2.7=1  'Enable UART2
+'RCSTA2.4=0  'disable UART2 receiver
+'PIE3.5=1    'Enable receive UART2 interrupt
+'PIR3.5=0    'Clear RC1IF
+'TXSTA2.5=1  'enable UART2 transmit
+'UART2 receive not defined
+'hserout2 ["Temp processor started, Hardware V",dec hardware,13,10]
+
+gosub check_startupreset  'check if reset 
+
+read 0,Mod_NE        'Mode_ID in eeprom controller
+read 1,Mod_ID0
+read 2,Mod_ID1
+read 3,Mod_ID2
+read 4,Mod_ID3
+Mod_ID0 = "T"        'This is a Temperature module
+
+
+PCF8574_ADDRESS  con %01000000
+PCF8574A_ADDRESS con %01110000
+PCF8574i2ccont var byte
+PCF8574i2ccont=PCF8574_ADDRESS
+i2cdata=255
+gosub write_pcf8574
+if err=1 then 
+  PCF8574i2ccont=PCF8574A_ADDRESS  'if i2c address is not correct, take the other address
+  i2cdata=255
+  gosub write_pcf8574
+endif  
+
+I2C_STATE=I2C_STATE_GET_TEMP
+
+'bootloader, see http://wiki.openmotics.com/index.php/Bootloader
+read 64,x    'Read Hardware version
+if x<>hardware then 
+  write 64,hardware
+endif
+read 65,x    'Read Major firmware version
+if x<>version then 
+  write 65,version
+endif
+read 66,x    'Read Minor firmware version
+if x<>firmware then 
+  write 66,firmware
+endif
+read 67,x    'Read Minor firmware version
+if x<>built then 
+  write 67,built
+endif 
+read 74,x    'Read Flashmode variable and put on 0 so the bootloader knows the app is running
+if x<>0 then 
+  write 74,0
+endif
+write 75,0    'Set Bootloader time on 0 seconds 
+
+
+high led_logo
+
+'----------------------------------------------------------------------------
+' Main routine
+'----------------------------------------------------------------------------
+
+mainloop:    
+  gosub interprete_serial    'check information coming from the RS485 bus
+  gosub Display_AlertLeds    'Check if any leds needs to flash, normal or inverted state
+  gosub check_temperature    'Check value external sensor (temperature/humidity/brightness)
+  gosub check_SerialErrors   'Check if serial errors happened
+  if mode="I" then           'bus is in Initialization mode
+    gosub check_inputs       'during initialization, 2 inputs needs to be checked
+  endif
+  gosub check_5Vpower        'Check if the external 5V for the sensors is ON
+  gosub Sensor_check         'Start sensor check every x seconds
+  gosub read_input           'Only used for hardware testing during production
+Goto mainloop
+
+'--------------------------------------------------------------------------
+' Interrupt routines
+'--------------------------------------------------------------------------
+
+Receive1:                  'RS485 receive routine
+  recsertemp1=recsertemp2  'Keep previous character also
+  recsertemp2=RCREG1
+  if recser1=1 then        'Receiving?
+    StackSer1[PointerSer1]=recsertemp2
+    ReceiveTemp=pointerser1-1
+    if stackser1[ReceiveTemp]=13 and stackser1[pointerser1]=10 then
+      RCSTA1.4=0           'disable receiving serial 1
+      RecSer1=0            'stop receiving ser1 and buffering
+      InterpreteSer1=1
+    endif
+    pointerser1=pointerser1+1
+    if pointerser1>(Buffer-2) then  'Buffer overflow -> stop receiving and interprete
+      RCSTA1.4=0           'disable receiving serial 1
+      RecSer1=0            'stop receiving ser1 and buffering
+      InterpreteSer1=1
+    endif  
+  else                     'Not in receiving mode
+    if recsertemp1="S" and recsertemp2="T" then
+      Pointerser1=0
+      recser1=1            'start receiving ser1
+    endif
+  endif
+@ INT_RETURN
+
+Timer0:                    'interrupt after 26ms when i2c is active
+     T0CON.7=0             'timer 0 disabled
+     INTCON.2=0            'interrupt flag cleared
+     i2cmode=0             'stop
+     err=1                 'error
+@ INT_RETURN
+
+Timer2:                    'interrupt every 1,62ms  
+  T2CON.2=0
+  PIR1.1=0                 'clear timer2 interrupt flag 
+  timer=timer+1
+  if timer=80 then 
+    high led_logo
+    LedAlertOn=0
+    if LedAlertCounter>0 then 
+      LedAlertUpdate=1
+      SensorLedOff=0
+    else
+      SensorLedOff=1
+    endif    
+  endif  
+  if timer=1000 then
+    timer=0
+    low led_logo
+    LedAlertOn=1
+    LedalertUpdate=1
+    ComOK=0
+    if LedAlertCounter>0 then 
+      SensorLedOff=0
+    else
+      SensorLedOff=1
+    endif      
+  endif 
+  if LedCounter>0 then 
+    LedCounter=LedCounter-1
+    if LedCounter=0 then LedAction=1
+  endif  
+  if Ledalertcounter>0 then LedAlertCounter=Ledalertcounter-1
+  if PowerCount>0 then PowerCount=PowerCount-1
+  if PowerTimer>37037 then   '1 minute has been reached
+    PowerTimer=0
+    If Powerminute>358 then  'Reset Power of Temperature sensors every 6 hours
+      PowerMinute=0
+      low poweron   'Switch OFF 5V power (hardware V3)
+      low poweron2  '                    (hardware V4)
+      PowerState=0      
+    else
+      PowerMinute=PowerMinute+1
+    endif
+  else
+    PowerTimer=PowerTimer+1
+  endif
+  counter2=counter2+1 
+  call timerint    
+  T2CON.2=1
+@ INT_RETURN
+
+SSP:
+  PIE1.3=0                 'disable interrupt
+  i2cMode=i2cMode+1
+  i2cInt=1
+  PIR1.3=0                 'clear interrupt flag
+  PIE1.3=1                 'enable interrupt  
+@ INT_RETURN
+
+'---------------------------------------------------------------------------
+' RS485 routines
+'---------------------------------------------------------------------------
+
+Interprete_Serial:          'Interprete data coming from the RS485 bus
+  if InterpreteSer1=1 then
+    RCSTA1.4=0              'disable receiving serial 1  
+    InterpreteSer1=0
+    if pointerser1>6 then   
+      if stackser1[0]="T" then  'Temperature Module addressed ?
+        gosub Check_temperature_Module  
+      elseif stackser1[0]=0 and stackser1[1]=0 and stackser1[2]=0 and stackser1[3]=0 then    'Broadcast message
+         if stackser1[4]="L" and stackser1[5]="L" then   'Bus in Live mode
+           if mode="I" then 
+             high led_red
+           endif  
+           mode="L"
+         elseif stackser1[4]="I" and stackser1[5]="I" then   'Bus in Initialize mode
+           gosub generate_id
+           if mode="L" then 
+             low led_red
+           endif
+           mode="I"
+         elseif stackser1[4]="N" and stackser1[5]="N" then   'Module in Normal state (Leds on)
+           PowerSafe=0
+           LedAlertUpdate=1
+         elseif stackser1[4]="S" and stackser1[5]="S" then   'Module in Power Safe state (Leds off)
+           PowerSafe=1
+           LedAlertUpdate=1
+         elseif stackser1[4]="P" and stackser1[5]="F" then   'Switch OFF Power 5V (Will switch automatically after 60 sec)
+           Low poweron
+           Low poweron2
+           PowerState=0
+         elseif stackser1[4]="P" and stackser1[5]="N" then   'Switch ON Power 5V
+           high PowerOn
+           high PowerOn2
+           PowerState=1
+         'testmode 
+         elseif stackser1[4]="T" and stackser1[5]="M" then  'Instruction only requested in Test Mode  
+           PowerState=0     'Make sure external port remains inactive
+           Low poweron      'switch off external 5V
+           Low poweron2
+           input input1     'Define external connection as input
+           input input2 
+           input input3 
+           input input4 
+           input input5 
+           input input6 
+           input input7 
+           input input8            
+           indicate=255
+           Powersafe=0
+           toggle led_red
+           Gosub Test_instructions                                     
+         endif           
+      elseif mode="I" and stackser1[0]="A" and stackser1[1]="D" then   'activate device
+         gosub activate_device
+      endif
+    endif
+    pointerser1=0
+    RCSTA1.4=1             'enable receiving serial 1
+  endif
+return
+
+'testmode
+Test_instructions:
+  if stackser1[6]="V" then  'Firmware version
+    high RS485_mode     'send mode
+    hserout ["AAARC",0,0,0,0,"V",Mod_ID0,hardware,version,firmware,built,13,10,13,10]
+    low RS485_mode      'receive mode
+  elseif stackser1[6]="I" then  'Provide Input state
+    'here
+    high RS485_mode     'send mode
+    hserout ["AAARC",0,0,0,0,"I",InputState,13,10,13,10]
+    low RS485_mode      'receive mode 
+  elseif stackser1[6]="s" then  'Set 5V output
+    if stackser1[7]=0 then      'switch off 5V
+      low PowerOn               'Switch off 5V power (hardware V3)
+      Low PowerOn2              '                    (hardware V4)     
+    else                        'switch on 5V
+      high PowerOn              'Switch on 5V power (hardware V3)
+      high PowerOn2             '                   (hardware V4)    
+    endif
+  elseif stackser1[6]="C" then  'Set Clock output
+    if stackser1[7]=0 then      'switch off CLK line
+      high I2C_CLOCK_IO                   
+    else                        'switch on CLK line
+      low I2C_CLOCK_IO            
+    endif    
+  elseif stackser1[6]="B" then  'Provide Button state
+    'here
+    high RS485_mode     'send mode
+    hserout ["AAARC",0,0,0,0,"B",1,Button1,13,10,13,10]
+    low RS485_mode      'receive mode                                   
+  endif
+return
+
+'Testmode
+Read_Input:
+  if PowerState=0 then
+    InputState.bit7=input8
+    InputState.bit6=input7
+    InputState.bit5=input6
+    InputState.bit4=input5
+    InputState.bit3=input4
+    InputState.bit2=input3
+    InputState.bit1=input2
+    InputState.bit0=input1
+    Ledstate=~Inputstate
+    if LedState<>LedStateOld then
+      LedAlertUpdate=1
+    endif
+    LedStateOld=LedState
+  endif
+return
+
+check_SerialErrors:
+  if RCSTA1.2=1 then       'frame error bit
+    x=RCREG1
+  endif
+  if RCSTA1.1=1 then       'Overrun Error bit
+    RCSTA1.4=0             'disable receiver
+    pause 2
+    RCSTA1.4=1             'enable receiver
+  endif
+return
+
+Sensor_check:
+  if counter2>1800 then          'Every x seconds
+    counter2=0
+    SensorMode=SensorMode+1
+    if SensorMode>10 then SensorMode=1
+    if SensorMode=4 then        'Humidity
+      gosub Measure_Humidity
+    elseif SensorMode=8 then    'Temperature
+      gosub Measure_Temperature
+    elseif (SensorMode=2 or sensorMode=6 or SensorMode=10) then   'ADC
+      gosub Measure_ADC
+    else
+      gosub set_led  
+    endif
+  endif  
+return
+
+Check_temperature_module:
+  if stackser1[0]=Mod_id0 and stackser1[1]=Mod_id1 and stackser1[2]=Mod_id2 and stackser1[3]=Mod_id3 then
+    'bootloader
+    if stackser1[4]="F" and stackser1[5]="V" then      'Request Firmware Version
+      s1="V"
+      gosub send_F_response
+    elseif stackser1[4]="F" and stackser1[5]="R" then  'Perform Reset of the module
+      write 75,stackser1[6]                            'Write number of seconds that this module must remain in bootloader mode
+      s1="R"
+      gosub send_F_response
+      asm
+        reset
+      endasm  
+    
+    else     
+      ComOK=1
+      indicate=Stackser1[5]
+      if indicate<8 then              'Any flashing of indication leds needed?
+        LedAlert=%10000000>>indicate
+        LedAlertCounter=12308         '20 seconds
+      endif 
+      if stackser1[4]="T" then        'Temperature
+        gosub rs485_send2
+      elseif stackser1[4]="H" then    'Humidity 
+        gosub rs485_send3
+      elseif stackser1[4]="A" then    'ADC value
+        gosub rs485_send4
+      endif
+    endif
+  endif   
+  if mode="L" and ComOK=1 then led_red=led_logo
+return
+
+'bootloader
+send_F_response:
+  high RS485_mode 'send mode
+  if s1="V" then  'Firmware version
+    CRC=Mod_id0+Mod_id1+Mod_id2+Mod_id3+"F"+"V"+255+hardware+version+firmware+built
+    hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","V",255,hardware,version,firmware,built,0,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+  else            'Reset
+    CRC=Mod_id0+Mod_id1+Mod_id2+Mod_id3+"F"+"R"+255
+    hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","R",255,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+  endif
+  low RS485_mode  'Receive mode
+return
+
+Check_5Vpower:
+   if PowerState=0 then
+     if PowerCheck=0 then
+       PowerCheck=1
+       PowerCount=6173            'Leave it switched off for 10 seconds
+       I2C_STATE= I2C_STATE_IDLE  'Abort ongoing I2c communications       
+       I2C_DATA1_TRIS=0           'DATA ACTIVE LOW
+       gosub write_I2C_DATA1_TRIS       
+       I2C_DATA1_IO=0             'Bring output pins to zero
+       gosub write_I2C_DATA1_IO
+       I2C_CLOCK_IO=1             'clock LOW 
+     endif
+     if PowerCount=0 then
+       high PowerOn               'Switch ON 5V Power
+       high PowerOn2
+       PowerState=1
+       I2C_DATA1_TRIS=0           'DATA ACTIVE LOW
+       gosub write_I2C_DATA1_TRIS       
+       I2C_DATA1_IO=255           'Bring output pins to 1
+       gosub write_I2C_DATA1_IO       
+       I2C_CLOCK_IO=0             'clock High
+     endif  
+   else
+     PowerCheck=0
+     PowerCount=0
+   endif
+return
+
+Display_AlertLeds:
+  if LedalertUpdate=1 then   'Led needs to be updated
+    LedAlertUpdate=0
+    if SensorLedOff=0 then   'Any led indication instruction received
+      if LedAlertOn=0 then   'Normal led condition
+        x=~Ledstate
+        gosub set_leds
+        gosub write_pcf8574 
+      else                   'Inverted led condition
+        y=LedState^LedAlert
+        x=~y
+        gosub set_leds
+        gosub write_pcf8574
+      endif
+    else
+      x=~Ledstate
+      gosub set_leds
+      gosub write_pcf8574        
+    endif
+    if SensorLedOff=0 then   'Led on Temp PCB ON
+      SensorLedState.bit0=~Ledalert.bit7
+      SensorLedState.bit1=~Ledalert.bit6
+      SensorLedState.bit2=~Ledalert.bit5
+      SensorLedState.bit3=~Ledalert.bit4
+      SensorLedState.bit4=~Ledalert.bit3
+      SensorLedState.bit5=~Ledalert.bit2
+      SensorLedState.bit6=~Ledalert.bit1
+      SensorLedState.bit7=~Ledalert.bit0
+      SensorMode=8           'refresh leds
+    else
+      SensorLedState=255  
+    endif
+  endif
+return
+
+set_leds:
+  i2cdata.bit0=x.bit7
+  i2cdata.bit1=x.bit6
+  i2cdata.bit2=x.bit5
+  i2cdata.bit3=x.bit4
+  i2cdata.bit4=x.bit3
+  i2cdata.bit5=x.bit2
+  i2cdata.bit6=x.bit1
+  i2cdata.bit7=x.bit0
+  if PowerSafe=1 then  'Module is in power safe mode
+    i2cdata=255        'switch off leds
+  endif   
+return
+
+
+generate_ID:
+if Mod_NE<>"E" then                        'Not yet a unique code
+  Mod_NE="N"
+  for q=0 to 2
+    random w1                              'generate random ID
+    if w1.byte0<>255 and w1.byte0<>0 then  'Random value if ok
+      tmp[q]=w1.byte0
+    else                                   'Random value is not ok
+      tmp[q]=171+q                         'Random value (My bithday :))
+    endif
+  next q
+  Mod_ID1=tmp[0]
+  Mod_ID2=tmp[1]
+  Mod_ID3=tmp[2]
+endif
+return
+
+check_startupreset:
+  for s=0 to 40
+    if button1=0 then test=1 
+    if button1=1 then s=40 : test=0    'button not pressed long enough        
+    pause 50
+  next s
+  if test>0 then
+    write 0,255                        'Mode_ID in eeprom controller
+    write 1,255
+    write 2,255
+    write 3,255
+    write 4,255
+  endif    
+return
+
+check_inputs:               'during initialization, inputs needs to be checked
+  if Button1=0 then         'initialization button is pressed
+    if reset_count=0 then   'Message is sent for the first time
+      reset_count=10
+      s1=0
+      s2=Mod_NE             'E->existing,N->New
+      gosub rs485_send
+    endif  
+  else                      'initialization button is not pressed
+    if reset_count>0 then reset_count=reset_count-1     
+  endif           
+return
+
+rs485_send:
+  if mode="L" then 
+    LedAction=0
+    Ledcounter=20
+  endif  
+  pauseus 1350
+  high RS485_mode           'send mode
+  hserout ["AAARC",Mod_ID0,Mod_ID1,Mod_ID2,Mod_ID3,s1,s2,13,10,13,10]
+  low RS485_mode            'receive mode 
+return
+
+rs485_send2:  
+  pauseus 1350
+  CRC="T"+temperature[0]+temperature[1]+temperature[2]+temperature[3]
+  CRC=CRC+temperature[4]+temperature[5]+temperature[6]+temperature[7]  
+  high RS485_mode           'send mode
+  hserout ["AAARC",Mod_ID0,Mod_ID1,Mod_ID2,Mod_ID3,"T",temperature[0],temperature[1],temperature[2],temperature[3],temperature[4],temperature[5],temperature[6],temperature[7],"C",CRC.byte1,CRC.byte0,13,10,13,10]
+  low RS485_mode            'receive mode 
+return
+
+rs485_send3:  
+  pauseus 1350
+  CRC="H"+humidity[0]+humidity[1]+humidity[2]+humidity[3]
+  CRC=CRC+humidity[4]+humidity[5]+humidity[6]+humidity[7]
+  high RS485_mode           'send mode
+  hserout ["AAARC",Mod_ID0,Mod_ID1,Mod_ID2,Mod_ID3,"H",humidity[0],humidity[1],humidity[2],humidity[3],humidity[4],humidity[5],humidity[6],humidity[7],"C",CRC.byte1,CRC.byte0,13,10,13,10]
+  low RS485_mode            'receive mode 
+return
+
+rs485_send4:  
+  pauseus 1350
+  CRC="A"+AdcValue[0]+AdcValue[1]+AdcValue[2]+AdcValue[3]
+  CRC=CRC+AdcValue[4]+AdcValue[5]+AdcValue[6]+AdcValue[7]
+  high RS485_mode           'send mode
+  hserout ["AAARC",Mod_ID0,Mod_ID1,Mod_ID2,Mod_ID3,"A",AdcValue[0],AdcValue[1],AdcValue[2],AdcValue[3],AdcValue[4],AdcValue[5],AdcValue[6],AdcValue[7],"C",CRC.byte1,CRC.byte0,13,10,13,10]
+  low RS485_mode            'receive mode 
+return
+
+Check_LedAction:
+  if LedAction=1 and mode="L" then
+    high led_green
+    high led_red
+    LedAction=0
+    Ledcounter=0
+  endif
+return
+
+
+activate_device:
+  if Mod_NE="N" and stackser1[2]=Mod_ID0 and stackser1[3]=Mod_ID1 and stackser1[4]=Mod_ID2 and stackser1[5]=Mod_ID3 then 'received ID is the new 
+    Mod_NE="E"
+    write 0,Mod_NE          'Mode_ID in eeprom controller
+    write 1,Mod_ID0
+    write 2,Mod_ID1
+    write 3,Mod_ID2
+    write 4,Mod_ID3       
+  endif
+  low led_green    
+return
+
+Measure_Temperature:    'this subroutine must be used to (re)start temperature measurement
+  if PowerState=1 then  
+    IF I2C_STATE= I2C_STATE_IDLE then
+      I2C_STATE = I2C_STATE_GET_TEMP  
+      Temperature_Refresh=1
+    endif
+  endif  
+return
+
+Set_led:
+  if powerState=1 then
+    IF I2C_STATE= I2C_STATE_IDLE then
+      I2C_STATE = I2C_STATE_SET_LED  
+      Led_Refresh=1
+    endif
+  endif  
+return
+
+Measure_Humidity:    'this subroutine must be used to (re)start humidity measurement
+  if PowerState=1 then
+    IF I2C_STATE= I2C_STATE_IDLE then
+      I2C_STATE = I2C_STATE_GET_HUM  
+      Humidity_Refresh=1
+    endif
+  endif  
+return
+
+Measure_ADC:        'this subroutine must be used to (re)start ADC measurement
+  if PowerState=1 then  
+    IF I2C_STATE= I2C_STATE_IDLE then
+      I2C_STATE = I2C_STATE_GET_ADC  
+      ADC_Refresh=1
+    endif
+  endif  
+return
+
+Check_temperature:      'this routine will check if a new temperature measurement cycle has been completed
+  if PowerState=1 then  
+    IF I2C_STATE= I2C_STATE_IDLE THEN
+        IF Temperature_Refresh=1 then
+          Temperature_Refresh=0
+          T2CON.2=0         'Stop Timer 2
+          Gosub Calculate_temperature
+          T2CON.2=1         'Start Timer 2  
+        endif
+        IF Humidity_Refresh=1 then
+          Humidity_Refresh=0
+          T2CON.2=0         'Stop Timer 2
+          Gosub Calculate_humidity
+          T2CON.2=1         'Start Timer 2  
+        endif
+        IF ADC_Refresh=1 then
+          ADC_Refresh=0
+          T2CON.2=0         'Stop Timer 2
+          Gosub Calculate_ADC
+          T2CON.2=1         'Start Timer 2  
+        endif 
+        IF Led_Refresh=1 then
+          Led_Refresh=0
+          T2CON.2=0         'Stop Timer 2
+          'Gosub Calculate_Led
+          T2CON.2=1         'Start Timer 2  
+        endif               
+    ENDIF
+  endif      
+return
+
+Calculate_Temperature:      'convert measured values in to OpenMotics temperature system values
+  FOR i=0 to 7
+    if tempstatus[i]=1 then
+      x=tempdata1[i]
+      sign=x.bit7
+      y=x<<1
+      z=tempdata2[i]
+      y.bit0=z.bit7
+      if sign=0 then        'temperature is positive
+        TemperatureCalc=y+64
+      else                  'temperature is negative
+        TemperatureCalc=y-192
+      endif
+    else
+      TemperatureCalc=255    'Sensor not connected
+    endif
+    if (TemperatureCalc>=(TemperatureOld[i]-8) and TemperatureCalc<=(TemperatureOld[i]+8)) or TemperatureError[i]>2 then  'Check if we have valid values
+      if TemperatureError[i]>2 then
+        TemperatureOld[i]=TemperatureCalc
+      else
+        TemperatureOld[i]=Temperature[i]
+      endif
+      if TemperatureOld[i]>245 then TemperatureOld=245
+      If TemperatureOld[i]<10 then TemperatureOld=10
+      Temperature[i]=TemperatureCalc
+      TemperatureError[i]=0
+    else
+      TemperatureError[i]=TemperatureError[i]+1
+      if TemperatureOld[i]=255 then  'Sensor not connected
+        TemperatureOld[i]=Temperature[i]
+        Temperature[i]=TemperatureCalc
+        TemperatureError[i]=0
+      endif
+    endif
+  next i
+  gosub Check_LedState
+return
+
+
+Calculate_ADC:              'convert measured values in to OpenMotics adc system values
+  FOR i=0 to 7
+    if adcstatus[i]=1 then
+	  AdcValue[i]=((adcdata1[i]&%00001111)<<4)+((adcdata2[i]&%11110000)>>4)
+	  if AdcValue[i]=255 then AdcValue[i]=254
+    else
+      AdcValue[i]=255    	'Sensor not connected
+    endif
+  next i
+  gosub Check_LedState
+return
+
+Calculate_Humidity:      'convert measured values in to OpenMotics humidity system values
+  FOR i=0 to 7
+    if humstatus[i]=1 then
+      if (humdata1[i]&%11000000)=0 then
+		temp_hum=humdata1[i]&%00111111
+		temp_hum=temp_hum<<8
+		temp_hum=temp_hum+humdata2[i]
+		Humidity[i]=temp_hum/82		
+	  else
+	    '<TODO> data is not ok from humidity sensor (this should not happen)
+	  endif
+    else
+      Humidity[i]=255    	'Sensor not connected
+    endif
+
+  next i
+  gosub Check_LedState
+return
+
+
+Check_LedState:
+  if powerstate=1 then
+    LedState.bit7=TempStatus[0] | HumStatus[0] | ADCstatus[0]
+    LedState.bit6=TempStatus[1] | HumStatus[1] | ADCstatus[1]
+    LedState.bit5=TempStatus[2] | HumStatus[2] | ADCstatus[2]
+    LedState.bit4=TempStatus[3] | HumStatus[3] | ADCstatus[3]
+    LedState.bit3=TempStatus[4] | HumStatus[4] | ADCstatus[4]
+    LedState.bit2=TempStatus[5] | HumStatus[5] | ADCstatus[5]
+    LedState.bit1=TempStatus[6] | HumStatus[6] | ADCstatus[6]
+    LedState.bit0=TempStatus[7] | HumStatus[7] | ADCstatus[7]
+    if LedState<>LedStateOld then
+      LedAlertUpdate=1
+    endif
+    LedStateOld=LedState
+  endif  
+return
+
+'------------------------------------------------------------------------------
+' I2C subroutines
+'------------------------------------------------------------------------------
+
+write_eeprom: 
+  i2ccont = %10100000
+  i2cClock=0
+  gosub i2c_write
+return
+
+read_eeprom:
+  i2ccont = %10100001
+  i2cClock=0  
+return
+
+write_i2c_2:
+  i2ccont=%11010000
+  i2cClock=1
+  eep_addr.byte1=i2caddr
+  gosub i2c_write
+return
+
+read_i2c_2:
+  i2ccont=%11010001
+  i2cClock=1
+  eep_addr.byte1=i2caddr
+  gosub i2c_read 
+return
+
+check_i2c_acknowledge:
+  if SSPCON2.6=0 then   'Acknowledge received from slave
+    i2cAck=1            'Acknowledge received
+    SSPCON2.6=1
+  else
+    i2cAck=0
+  endif 
+return
+
+write_pcf8574:
+  i2ccont=PCF8574i2ccont
+  i2cClock=1
+  pcf8574=1
+  gosub i2c_write
+return
+
+i2c_read:
+  if i2ccont.bit0=0 then    'r/w bit is wrong, correct
+    i2ccont.bit0=1
+  endif
+  i2creadbit=1
+  i2cint=1
+  i2cmode=1
+  TMR0L=0
+  TMR0H=0
+  T0CON.7=1                 'timer 0 enabled
+  gosub i2c_routine_read
+return
+
+i2c_write:
+  if i2ccont.bit0=1 then    'r/w bit is wrong, correct
+    i2ccont.bit0=0
+  endif
+  i2creadbit=0
+  i2cint=1
+  i2cmode=1
+  TMR0L=0
+  TMR0H=0  
+  T0CON.7=1  'timer 0 enabled                    
+  gosub i2c_routine_write  
+return
+
+i2c_routine_write:
+  while (i2cMode>0) 
+    if i2cInt=1 then   'i2c chip is ready for next instruction
+      i2cInt=0  
+      gosub i2cPhase1    
+      if i2cMode=5 then 'check acknowledge and send data   
+        gosub check_i2c_acknowledge
+        if i2cAck=1 then
+          SSPBUF=i2cData
+        endif  
+      endif
+      if i2cMode=6 then 'check acknowledge and sent stop   
+        gosub check_i2c_acknowledge
+        if i2cAck=1 then
+          SSPCON2.2=1
+        endif     
+      endif
+      if i2cMode=7 then 'end transmission 
+        i2cMode=0
+        T0CON.7=0       'stop timer0
+        err=0
+        if i2cClock=0 then pause 5 
+      endif    
+    endif
+  wend      
+return
+
+i2c_routine_read:
+  while (i2cMode>0) 
+    if i2cInt=1 then   'i2c chip is ready for next instruction
+      i2cInt=0  
+      gosub i2cPhase1
+      if i2cMode=5 then 'generate start condition
+        gosub check_i2c_acknowledge
+        if i2cAck=1 then      
+          SSPCON2.0=1  'start
+        endif  
+      endif
+      if i2cMode=6 then 'shift out i2c control byte
+        SSPBUF=i2ccont
+      endif 
+      if i2cMode=7 then
+        SSPCON2.3=1    'enable receiving
+      endif         
+      if i2cMode=8 then 'check acknowledge and receive data 
+          i2cdata=SSPBUF
+          i2cMode=9 
+      endif
+      if i2cMode=9 then 'sent stop   
+        SSPCON2.2=1     
+      endif
+      if i2cMode=10 then 'end transmission 
+        i2cMode=0
+        T3CON.0=0       'stop timer3
+        err=0
+      endif    
+    endif
+  wend      
+return
+
+i2cPhase1:
+      if i2cMode=1 then 'generate start condition
+        SSPCON2.0=1
+      endif
+      if i2cMode=2  then 'shift out i2c control byte
+        SSPBUF=i2ccont-i2creadbit  'when reading i2c, you first need to write
+      endif
+      if i2cMode=3 then 'check acknowledge and shift out i2c high address   
+        if pcf8574=0 then
+          gosub check_i2c_acknowledge
+          if i2cAck=1 then
+            SSPBUF=eep_addr.byte1 'high address
+          endif
+        else  'no need to sent eeprom address to a PCF8574
+          i2cmode=5
+        endif    
+      endif
+      if i2cMode=4 then 'check acknowledge and shift out i2c low address  
+        if i2cClock=1 then  'Clock IC has only 8bits address
+          i2cmode=5
+        else
+          SSPBUF=eep_addr.byte0 'low address
+        endif  
+      endif
+return
+
+
+TIMERINT:
+if PowerState=1 then
+  IF I2C_STATE = I2C_STATE_GET_TEMP then
+    I2C_PART=I2C_PART_IDLE
+    I2C_STATE_BYTE=I2C_STATE_READ_START-1
+    'reset                             
+    I2C_STATE = I2C_STATE_BUSY
+  ELSEIF I2C_STATE = I2C_STATE_GET_ADC then
+    I2C_PART=I2C_PART_IDLE
+    I2C_STATE_BYTE=I2C_ADC_STATE_WRITE_START-1
+    'reset                             
+    I2C_STATE = I2C_STATE_BUSY
+  ELSEIF I2C_STATE = I2C_STATE_GET_HUM then
+    I2C_PART=I2C_PART_IDLE
+    I2C_STATE_BYTE=I2C_HUM_STATE_READ_START1-1
+    'reset                             
+    I2C_STATE = I2C_STATE_BUSY
+  ELSEIF I2C_STATE = I2C_STATE_SET_LED then
+    I2C_PART=I2C_PART_IDLE
+    I2C_STATE_BYTE=I2C_LED_STATE_WRITE_START-1
+    'reset                             
+    I2C_STATE = I2C_STATE_BUSY    	
+  ELSEIF I2C_STATE = I2C_STATE_BUSY then    
+    if I2C_PART = I2C_PART_IDLE then
+      I2C_STATE_BYTE=I2C_STATE_BYTE+1
+      I2C_STATE_BIT_PART=1
+      I2C_STATE_BIT_COUNT=0
+      SELECT CASE I2C_STATE_BYTE      
+        CASE I2C_STATE_DONE
+          I2C_STATE = I2C_STATE_IDLE 
+		  
+        CASE I2C_STATE_WRITE_START					'write something to the tempsensor, never used
+          I2C_PART = I2C_STATE_START
+        CASE I2C_STATE_WRITE_ADDR
+          FOR ii=0 to 7
+            WriteByte[ii]=I2C_ADDRESS_TEMP&254
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE          
+        CASE I2C_STATE_WRITE_BYTE1
+          FOR ii=0 to 7
+            tempstatus[ii]=1-ack[ii]
+            WriteByte[ii]=tempwrite1[ii]
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE            
+        CASE I2C_STATE_WRITE_BYTE2
+          FOR ii=0 to 7
+            WriteByte[ii]=tempwrite2[ii]
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE             
+        CASE I2C_STATE_WRITE_STOP
+          I2C_PART = I2C_STATE_STOP       
+        CASE I2C_STATE_WRITE_END
+          I2C_STATE = I2C_STATE_IDLE  
+		  
+		  
+        CASE I2C_STATE_READ_START					'read temp data
+          I2C_PART = I2C_STATE_START
+        CASE I2C_STATE_READ_ADDR
+          FOR ii=0 to 7
+            WriteByte[ii]=I2C_ADDRESS_TEMP&254
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE          
+        CASE I2C_STATE_READ_POINTER
+          FOR ii=0 to 7
+            tempstatus[ii]=1-ack[ii]
+          next ii
+          FOR ii=0 to 7
+            WriteByte[ii]=0							'first set pointer to address 0x00
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE                
+        CASE I2C_STATE_READ_RESTART
+          I2C_PART = I2C_STATE_RESTART            
+        CASE I2C_STATE_READ_ADDR2
+          FOR ii=0 to 7
+            WriteByte[ii]=I2C_ADDRESS_TEMP|1
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE             
+        CASE I2C_STATE_READ_BYTE1					'read the data : 2 bytes
+          I2C_ACK = 1
+          I2C_PART = I2C_STATE_READBYTE                                 
+        CASE I2C_STATE_READ_BYTE2
+          FOR ii=0 to 7
+            tempdata1[ii]=ReadByte[ii]
+          next ii
+          I2C_ACK = 0
+          I2C_PART = I2C_STATE_READBYTE            
+        CASE I2C_STATE_READ_STOP
+          FOR ii=0 to 7
+            tempdata2[ii]=ReadByte[ii]
+          next ii
+          I2C_PART = I2C_STATE_STOP               
+        CASE I2C_STATE_READ_END
+          I2C_STATE = I2C_STATE_IDLE       
+
+		CASE I2C_ADC_STATE_WRITE_START 				'write the config for the adc
+		  I2C_PART = I2C_STATE_START
+		CASE I2C_ADC_STATE_WRITE_ADDR	
+		  FOR ii=0 to 7
+            WriteByte[ii]=I2C_ADDRESS_ADC&254
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE     
+		CASE I2C_ADC_STATE_WRITE_BYTE1 	    
+		  FOR ii=0 to 7
+            adcstatus[ii]=1-ack[ii]				
+            WriteByte[ii]=$01						'config is at address 0x01
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE      
+		CASE I2C_ADC_STATE_WRITE_BYTE2 	    
+		  FOR ii=0 to 7
+            WriteByte[ii]=$E0						'0xE0 = auto restart adc sampling
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE   
+		CASE I2C_ADC_STATE_WRITE_STOP	
+		  I2C_PART = I2C_STATE_STOP	  
+		  
+		CASE I2C_ADC_STATE_READ_START	 			'after the config, read an adc value
+		  I2C_PART = I2C_STATE_START
+		CASE I2C_ADC_STATE_READ_ADDR   	 
+		  FOR ii=0 to 7
+            WriteByte[ii]=I2C_ADDRESS_ADC&254
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE   
+		CASE I2C_ADC_STATE_READ_POINTER 
+		  FOR ii=0 to 7
+            WriteByte[ii]=0							'read from address 0, the first 2 bytes
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE 
+		CASE I2C_ADC_STATE_READ_RESTART 	 
+		  I2C_PART = I2C_STATE_RESTART
+		CASE I2C_ADC_STATE_READ_ADDR2  	
+		  FOR ii=0 to 7
+            WriteByte[ii]=I2C_ADDRESS_ADC|1
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE  
+		CASE I2C_ADC_STATE_READ_BYTE1  	
+		  I2C_ACK = 1
+          I2C_PART = I2C_STATE_READBYTE 
+		CASE I2C_ADC_STATE_READ_BYTE2 
+		  FOR ii=0 to 7
+            adcdata1[ii]=ReadByte[ii]
+          next ii
+          I2C_ACK = 0
+          I2C_PART = I2C_STATE_READBYTE    
+		CASE I2C_ADC_STATE_READ_STOP  
+		  FOR ii=0 to 7
+            adcdata2[ii]=ReadByte[ii]
+          next ii
+          I2C_PART = I2C_STATE_STOP  
+		CASE I2C_ADC_STATE_READ_END    	  
+		  I2C_STATE = I2C_STATE_IDLE  		  
+		  		  
+		CASE I2C_HUM_STATE_READ_START1 				'just weak up the humidity sensor by sending his addr
+		  I2C_PART = I2C_STATE_START
+		CASE I2C_HUM_STATE_READ_ADDR  
+		  FOR ii=0 to 7
+            WriteByte[ii]=I2C_ADDRESS_HUM&254		'send to write address
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE   
+		CASE I2C_HUM_STATE_READ_STOP1 	
+		  FOR ii=0 to 7
+            humstatus[ii]=1-ack[ii]				
+          next ii
+          I2C_PART = I2C_STATE_STOP
+		  HumDelay=0
+		CASE I2C_HUM_STATE_DELAY					'wait an extra timer loop (if needed, wait via counter is this state)
+           HumDelay=HumDelay+1
+           IF HumDelay<40 THEN
+                I2C_STATE_BYTE=I2C_STATE_BYTE-1
+           ENDIF
+		CASE I2C_HUM_STATE_READ_START2 				'then read the humidity data, the pointer should be at the beginning , so no pointersetting here
+		  I2C_PART = I2C_STATE_START
+		CASE I2C_HUM_STATE_READ_ADDR2   
+		  FOR ii=0 to 7
+            WriteByte[ii]=I2C_ADDRESS_HUM|1		'read address
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE   
+		CASE I2C_HUM_STATE_READ_BYTE1    			'read 4 bytes (2 for humidity and 2 for temperature)
+		  I2C_ACK = 1
+          I2C_PART = I2C_STATE_READBYTE 
+		CASE I2C_HUM_STATE_READ_BYTE2    
+		  FOR ii=0 to 7
+            humdata1[ii]=ReadByte[ii]
+          next ii
+          I2C_ACK = 1
+          I2C_PART = I2C_STATE_READBYTE  
+		CASE I2C_HUM_STATE_READ_BYTE3    
+		  FOR ii=0 to 7
+            humdata2[ii]=ReadByte[ii]
+          next ii
+          I2C_ACK = 1
+          I2C_PART = I2C_STATE_READBYTE  
+		CASE I2C_HUM_STATE_READ_BYTE4    
+		  FOR ii=0 to 7
+            humdata3[ii]=ReadByte[ii]
+          next ii
+          I2C_ACK = 0
+          I2C_PART = I2C_STATE_READBYTE  
+		CASE I2C_HUM_STATE_READ_STOP2  	
+		  FOR ii=0 to 7
+            humdata4[ii]=ReadByte[ii]
+          next ii
+          I2C_PART = I2C_STATE_STOP  
+		CASE I2C_HUM_STATE_READ_END		
+		  I2C_STATE = I2C_STATE_IDLE  
+
+        CASE I2C_LED_STATE_WRITE_START					'write threshold data to set led on and off
+          I2C_PART = I2C_STATE_START
+        CASE I2C_LED_STATE_WRITE_ADDR
+          FOR ii=0 to 7
+            WriteByte[ii]=I2C_ADDRESS_TEMP&254
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE          
+        CASE I2C_LED_STATE_WRITE_POINTER
+          FOR ii=0 to 7
+            tempstatus[ii]=1-ack[ii]
+          next ii
+          FOR ii=0 to 7
+            WriteByte[ii]=2							'first set pointer to address 0x02 for Thyst temp
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE     
+        CASE I2C_LED_STATE_WRITE_BYTE1
+           FOR ii=0 to 7
+			IF (SensorLedState&(1<<ii))>0 then		'write first byte depending on led on or off 
+				WriteByte[ii]=$7D					'0x7D00 = MAX temp possible
+			ELSE
+				WriteByte[ii]=$C9					'0xC900 = MIN temp possible
+			ENDIF
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE   
+		CASE I2C_LED_STATE_WRITE_BYTE2
+          FOR ii=0 to 7
+            WriteByte[ii]=0							'write second byte, always 0
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE   
+        CASE I2C_LED_STATE_WRITE_STOP
+          I2C_PART = I2C_STATE_STOP 
+
+        CASE I2C_LED_STATE_WRITE_START2				'write TOS data to set led on and off
+          I2C_PART = I2C_STATE_START
+        CASE I2C_LED_STATE_WRITE_ADDR2
+          FOR ii=0 to 7
+            WriteByte[ii]=I2C_ADDRESS_TEMP&254
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE          
+        CASE I2C_LED_STATE_WRITE_POINTER2
+          FOR ii=0 to 7
+            tempstatus[ii]=1-ack[ii]
+          next ii
+          FOR ii=0 to 7
+            WriteByte[ii]=3							'first set pointer to address 0x03 for TOS temp
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE     
+        CASE I2C_LED_STATE_WRITE_BYTE21
+           FOR ii=0 to 7
+			IF (SensorLedState&(1<<ii))>0 then		'write first byte depending on led on or off 
+				WriteByte[ii]=$7D					'0x7D00 = MAX temp possible
+			ELSE
+				WriteByte[ii]=$C9					'0xC900 = MIN temp possible
+			ENDIF
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE   
+		CASE I2C_LED_STATE_WRITE_BYTE22
+          FOR ii=0 to 7
+            WriteByte[ii]=0							'write second byte, always 0
+          next ii
+          I2C_PART = I2C_STATE_WRITEBYTE   
+        CASE I2C_LED_STATE_WRITE_STOP2
+          I2C_PART = I2C_STATE_STOP 
+        CASE I2C_LED_STATE_WRITE_END
+          I2C_STATE = I2C_STATE_IDLE 
+		  
+        CASE ELSE
+          I2C_STATE = I2C_STATE_IDLE                
+      END SELECT 
+    endif
+            
+    if I2C_PART != I2C_PART_IDLE then                                      
+      SELECT CASE I2C_PART
+        CASE I2C_STATE_START
+          if I2C_STATE_BIT_PART=1 then
+            I2C_DATA1_TRIS=0                     'DATA ACTIVE LOW
+            gosub write_I2C_DATA1_TRIS
+            I2C_DATA1_IO=0
+            gosub write_I2C_DATA1_IO                        
+            I2C_STATE_BIT_PART=2
+          elseif I2C_STATE_BIT_PART=2 then
+            I2C_CLOCK_IO=1
+            I2C_STATE_BIT_PART=3
+            Pause 1
+          elseif I2C_STATE_BIT_PART=3 then
+            I2C_PART=I2C_PART_IDLE
+            Pause 1
+          endif       
+        CASE I2C_STATE_STOP
+          if I2C_STATE_BIT_PART=1 then
+            I2C_DATA1_TRIS=0
+            gosub write_I2C_DATA1_TRIS                     'DATA ACTIVE LOW
+            I2C_DATA1_IO=0 
+            gosub write_I2C_DATA1_IO                       
+            I2C_STATE_BIT_PART=2
+          elseif I2C_STATE_BIT_PART=2 then
+            I2C_CLOCK_IO=0
+            I2C_STATE_BIT_PART=3
+          elseif I2C_STATE_BIT_PART=3 then
+            I2C_DATA1_TRIS=255                   'DATA HIGH STATE
+            gosub write_I2C_DATA1_TRIS 
+            I2C_STATE_BIT_PART=4                   
+          elseif I2C_STATE_BIT_PART=4 then
+            I2C_PART=I2C_PART_IDLE
+          endif          
+        CASE I2C_STATE_RESTART   
+          IF I2C_STATE_BIT_PART=1 then
+            I2C_CLOCK_IO=0 
+            I2C_STATE_BIT_PART=2
+          elseif I2C_STATE_BIT_PART=2 then     
+            I2C_DATA1_TRIS=0                     'DATA ACTIVE LOW
+            gosub write_I2C_DATA1_TRIS
+            I2C_DATA1_IO=0
+            gosub write_I2C_DATA1_IO                        
+            I2C_STATE_BIT_PART=3
+          elseif I2C_STATE_BIT_PART=3 then
+            I2C_CLOCK_IO=1
+            I2C_STATE_BIT_PART=4
+          elseif I2C_STATE_BIT_PART=4 then
+            I2C_PART=I2C_PART_IDLE
+          endif         
+        CASE I2C_STATE_READBYTE
+          if I2C_STATE_BIT_COUNT < 8 then           'read bits of byte
+            if I2C_STATE_BIT_PART = 1 then
+              I2C_DATA1_TRIS=255                     
+              gosub write_I2C_DATA1_TRIS
+            ELSEif I2C_STATE_BIT_PART = 2 then
+              I2C_CLOCK_IO=0                           
+            elseif I2C_STATE_BIT_PART = 3 then
+              if I2C_STATE_BIT_COUNT = 0 then 
+                FOR ii=0 to 7
+                  ReadByte[ii]=0
+                next ii
+              endif
+              gosub read_I2C_DATA1_IO
+              I2C_BYTE1_IO=I2C_DATA1_IO
+                FOR ii=0 to 7
+                  ReadByte[ii] = (ReadByte[ii]<<1) + (I2C_BYTE1_IO & 1)
+                  I2C_BYTE1_IO = I2C_BYTE1_IO >> 1
+                next ii
+              elseif I2C_STATE_BIT_PART = 4 then
+                I2C_CLOCK_IO=1      
+                I2C_STATE_BIT_PART = 0
+                I2C_STATE_BIT_COUNT=I2C_STATE_BIT_COUNT+1
+              endif
+              I2C_STATE_BIT_PART=I2C_STATE_BIT_PART+1
+            else                                      'send acknowledge  
+              if I2C_STATE_BIT_PART = 1 then
+                if I2C_ACK = 1 then
+                  I2C_DATA1_TRIS=0
+                  gosub write_I2C_DATA1_TRIS
+                  I2C_DATA1_IO=0
+                  gosub write_I2C_DATA1_IO
+                else
+                  I2C_DATA1_TRIS=255
+                  gosub write_I2C_DATA1_TRIS
+                endif           
+              elseif I2C_STATE_BIT_PART = 2 then
+                I2C_CLOCK_IO=0
+              elseif I2C_STATE_BIT_PART = 3 then
+                I2C_CLOCK_IO=1           
+                I2C_PART=I2C_PART_IDLE
+              endif 
+              I2C_STATE_BIT_PART=I2C_STATE_BIT_PART+1      
+            endif        
+          CASE I2C_STATE_WRITEBYTE
+            if I2C_STATE_BIT_COUNT < 8 then           'write bits 
+              if I2C_STATE_BIT_PART = 1 then 
+                if I2C_STATE_BIT_COUNT = 0 then 
+                  FOR ii=0 to 7
+                    Ack[ii]=0
+                  next ii
+                endif
+                I2C_BYTE1_IO=0
+                  FOR ii=7 to 0 STEP -1
+                    I2C_BYTE1_IO = (I2C_BYTE1_IO<<1) + ((WriteByte[ii]>>(7-I2C_STATE_BIT_COUNT))&1)    
+                  next ii
+                  I2C_DATA1_TRIS=I2C_BYTE1_IO
+                  gosub write_I2C_DATA1_TRIS
+                  I2C_DATA1_IO=I2C_BYTE1_IO
+                  gosub write_I2C_DATA1_IO
+                elseif I2C_STATE_BIT_PART = 2 then
+                  I2C_CLOCK_IO=0
+                elseif I2C_STATE_BIT_PART = 3 then
+                  I2C_CLOCK_IO=1         
+                  I2C_STATE_BIT_PART = 0
+                  I2C_STATE_BIT_COUNT=I2C_STATE_BIT_COUNT+1
+                endif
+                I2C_STATE_BIT_PART=I2C_STATE_BIT_PART+1
+              else                                      'read acknowledge    
+                if I2C_STATE_BIT_PART = 1 then
+                  I2C_DATA1_TRIS=255
+                  gosub write_I2C_DATA1_TRIS
+                elseif I2C_STATE_BIT_PART = 2 then
+                  I2C_CLOCK_IO=0
+                elseif I2C_STATE_BIT_PART = 3 then
+                  gosub read_I2C_DATA1_IO
+                  I2C_BYTE1_IO=I2C_DATA1_IO        
+                  FOR ii=0 to 7
+                    Ack[ii] = I2C_BYTE1_IO & 1
+                    I2C_BYTE1_IO=I2C_BYTE1_IO>>1
+                  next ii
+                elseif I2C_STATE_BIT_PART = 4 then
+                  I2C_CLOCK_IO=1
+                  I2C_PART=I2C_PART_IDLE
+                endif 
+                I2C_STATE_BIT_PART=I2C_STATE_BIT_PART+1
+              endif    
+            CASE ELSE
+              I2C_PART = I2C_PART_IDLE 
+          END SELECT 
+        endif
+      endif
+endif            
+return
+
+
+
+write_I2C_DATA1_IO:
+  input1=I2C_DATA1_IO.bit0
+  input2=I2C_DATA1_IO.bit1
+  input3=I2C_DATA1_IO.bit2
+  input4=I2C_DATA1_IO.bit3
+  input5=I2C_DATA1_IO.bit4
+  input6=I2C_DATA1_IO.bit5
+  input7=I2C_DATA1_IO.bit6
+  input8=I2C_DATA1_IO.bit7
+return
+
+read_I2C_DATA1_IO:
+  I2C_DATA1_IO.bit0=input1
+  I2C_DATA1_IO.bit1=input2
+  I2C_DATA1_IO.bit2=input3
+  I2C_DATA1_IO.bit3=input4
+  I2C_DATA1_IO.bit4=input5
+  I2C_DATA1_IO.bit5=input6
+  I2C_DATA1_IO.bit6=input7
+  I2C_DATA1_IO.bit7=input8
+return                     
+
+write_I2C_DATA1_TRIS:
+  TRISC.5=I2C_DATA1_TRIS.bit7
+  TRISD.3=I2C_DATA1_TRIS.bit6
+  TRISD.2=I2C_DATA1_TRIS.bit5
+  TRISD.1=I2C_DATA1_TRIS.bit4
+  TRISD.0=I2C_DATA1_TRIS.bit3
+  TRISC.2=I2C_DATA1_TRIS.bit2
+  TRISC.1=I2C_DATA1_TRIS.bit1
+  TRISC.0=I2C_DATA1_TRIS.bit0
+return
+   
+End
