@@ -48,10 +48,10 @@ INCLUDE "ReEnterPBP-18.bas"                 ; Include if using PBP interrupts
 DEFINE OSC 40
 
 version con 3
-firmware con 140
-built con 105
-
+firmware con 141
+built con 18
 hardware con 4
+
 '1-> 18F2620 20Mhz + co-processor 18F1220 for Rs232 communication
 '2-> 18F67J11 20Mhz + co-processor 18F1220 for Rs232 communication
 '3-> 18F67J11 20Mhz (full interrupt based)
@@ -124,6 +124,8 @@ InputDebug=0
 ApiExit var bit
 ApiExit=0
 InputFilter var byte
+UpDwn var bit
+UpDir var bit
 
 indicate var byte
 indicate=255
@@ -136,7 +138,9 @@ poll=1
 pollNr var byte
 pollNr=0
 pollNrOut var byte
+pollNrOutRS var byte
 pollNrOut=0
+pollNrOutRS=0
 
 INTCON=%00000000 
 
@@ -176,6 +180,7 @@ DebugMode var bit
 AutResponse var bit
 AutResponseOL var bit
 AutResponseIL var bit
+AutResponseSO var bit
 AllOff var bit
 DuplicateID var bit
 ok var bit                                  'if =1 -> "OK" message on console in CLI mode
@@ -236,7 +241,9 @@ cid var byte
 CIDused var bit
 CIDused=0
 write_yes var bit
+write_yes_RS var bit
 write_yes_mod var bit[30]
+write_yes_modRS var bit[30]
 press var bit
 input_pressed var byte
 eep_addr var word                           'memory address in eeprom
@@ -252,9 +259,12 @@ inp_invert var byte[30]
 led_button var byte[30]                     'Leds on input button module
 inp_old var byte[30]                        'Last input that has been read from the different input controllers
 out var byte[30]                            'Output that has written to the output controllers
+outRs var byte[30]
 sel_output var byte[240]                    'link between input and selected output (<240 -> toggle selected output, >239 -> perform group action list)
 controller_in var byte                      'number of input controllers
 controller_out var byte                     'number of output controllers
+controller_out_RS var byte                  'number of Roller/Shutter controllers when Large installation is enabled
+LargeInstallation var bit                   'When Large Installation is enabled, Roller/Shutter modules will be placed in the Roller/Shutter list
 Temperature var byte[32]                    'Temperature on input module or Temperature Module
 TempOffset var byte[32]
 TemperatureCount var byte
@@ -276,6 +286,7 @@ Mod_ID2 var byte[60]
 Mod_ID3 var byte[60]
 cmi var byte                                'Loop counter to calculate Module_ID         
 timer_cd var word[240]                      'Timer Count Down
+switch_type var bit[240]
 timer var word                              'Timer set value
 TimerSet var bit[240]
 error_code var byte                         'used in the subroutine "send_error"
@@ -326,7 +337,6 @@ PollTimeInput=0
 PollTimeOutput var byte
 PollTimeOutput=0
 PollTimeMain var byte
-pollinput var bit
 RS485Input var bit
 RS485busy var bit
 RS485busy=0
@@ -347,6 +357,7 @@ Thermostat var byte[controllers]
 Thermostat2 var byte[controllers]
 ThermostatSensor var byte[controllers]
 ThermostatUpdate var bit
+Airco var bit[controllers]                  'Enable/disable Airco when using RTD-10
 pid var byte  
 actual var byte
 ErrorPid var word
@@ -369,7 +380,6 @@ pump_delay var byte
 Temp_Mod_Installed var bit
 Temp_Threshold var byte
 Outside_sensor var byte
-Thermostats_On var bit
 ThermostatMode var byte
 Tt var byte                                 'Thermostat timing
 T_timing var byte[4]
@@ -415,9 +425,12 @@ PumpOn[7]=0
 CheckTimerQueue var bit
 PidCalcNow var bit
 PidCalcNow=0
+PidCalcCheck var bit
+PidCalcCheck=0
 PidCalcCounter var byte
 PidCalcCounter=0
 InputDelayAction var bit[241]
+StoreMove var bit
 
 SSP2ADD=124                                 'i2c at 80kHz
 SSP2STAT=%10000000
@@ -506,7 +519,6 @@ pause 80
 mode_com=0                                  'simple communication mode
 ok=1
 input_pressed=255
-Thermostats_On=1
 write_yes = 0
 i2cdata = 255
 i2caddr = 255
@@ -529,11 +541,12 @@ for i=0 to 239
   queue_action[i]=255
   InputDelayAction[i]=0
   InputEnable[i]=1
+  switch_type[i]=1
 next i
 
 InputDelayAction[240]=0
 timer_queue_pointer = 0                     'nothing in the queue
-for i=0 to timer_queue                      'put timerqueue correctly
+for i=0 to (timer_queue-1)                  'put timerqueue correctly
   timer_action[i]=255
   timer_type[i]=255
   timer_input[i]=255
@@ -564,6 +577,7 @@ for i=0 to 31
 next i
 for i=0 to (controllers-1)
   Thermostat[i]=255
+  Airco[i]=0
 next i
 Sched_queue_counter=0                       'scheduled queue is empty
 level=255
@@ -600,6 +614,10 @@ for i=1 to controller_out                   'write output to all modules
   write_yes_mod[i-1]=1
 next i
 write_yes=1
+for i=1 to controller_out_RS                'write output to all modules
+  write_yes_modRS[i-1]=1
+next i
+write_yes_RS=1
 pause 20
 gosub rs485_output
 ok=0
@@ -642,6 +660,7 @@ MainLoop:
     gosub Pid_Calc                          'Check if Thermostat PID calculation needs to be done
     gosub Pump_Check                        'Check If Pumps needs to be checked
     gosub RS485_output                      'write outputs
+    gosub RS485_outputRS                    'Write Roller/Shutter in Large installation
     gosub rs485_poll                        'poll input modules
     gosub RS485_fault                       'check if errors occured
     gosub check_queue
@@ -831,14 +850,14 @@ return
 pump_check:
   if PumpCheckNow=1 then
     if PumpCheckCounter<8 then
-      eep_addr.byte1=144                    'page
+      eep_addr.byte1=144+(59*thermostatmode.bit4)                    'page 144 or 203
       eep_addr.byte0=PumpCheckCounter  
       gosub read_eeprom
       a=i2cdata                             'Pump output 
       if a<240 then                         'Output exists
         pump=0
         for j=0 to 31                       'check list of outputs
-          eep_addr.byte1=143                'page
+          eep_addr.byte1=143+(59*thermostatmode.bit4)                'page 143 or 202
           eep_addr.byte0=(PumpCheckCounter*32)+j
           gosub read_eeprom
           if i2cdata<240 then
@@ -858,15 +877,11 @@ pump_check:
           if PumpOn[PumpCheckCounter]=0 then
             PumpOn[PumpCheckCounter]=1                  'Pump output is switched on or will be switched on with a delay
             if pump_delay>0 and pump_delay<249 then     'output delay is active
-              gosub Increase_queue_pointer
-              queue_type[queue_pointer]=235             'execute all next queue instruction with delay "pump_delay"
-              queue_action[queue_pointer]=pump_delay
-              gosub Increase_queue_pointer
-              queue_type[queue_pointer]=161             'output on
-              queue_action[queue_pointer]=a
-              gosub Increase_queue_pointer
-              queue_type[queue_pointer]=235             'back to normal: All next queue instruction without delay
-              queue_action[queue_pointer]=255
+              action[4]=161
+              action[5]=a
+              action[3]=pump_delay
+              action[6]=240
+              gosub add_timer_queue2
             else                                        'no output delay
               gosub Increase_queue_pointer
               queue_type[queue_pointer]=161             'output on
@@ -920,7 +935,7 @@ return
 
 PID_read:
   eep_addr.byte0=pid*4                      'address
-  eep_addr.byte1=141                        'page
+  eep_addr.byte1=141+(59*thermostatmode.bit4)                        'page 141 or 200
   gosub read_eeprom 
   Kp=i2cdata 
   eep_addr.byte0=(pid*4)+1                  'address
@@ -938,25 +953,25 @@ return
 PID_calc:
   if PidCalcNow=1 then
     if PidCalcCounter<controllers then 
-      if (Temp_threshold>temperature[outside_sensor]) or temperature[outside_sensor]>240 then  ' outside temperature is lower than thermostat threshold temperature 
-        Thermostats_On=1
-        if ThermostatMode.bit7=0 then       'Thermostat function is off
-          ThermostatMode.bit7=1             'Enable Thermostat function
-          gosub Write_ThermostatMode
-        endif 
-        if Thermostat[PidCalcCounter]<240 and ThermostatSensor[pidCalcCounter]<32 then  'Thermostat is linked to output and Temperature sensor
+      if ThermostatMode.Bit7=1 then         'Thermostat function is ON  
+        if Thermostat[PidCalcCounter]<241 and ThermostatSensor[pidCalcCounter]<32 then  'Thermostat is linked to output and Temperature sensor
           low led_red
           drive=0
           pid=PidCalcCounter
           gosub PID_read
           if PidMode=1 then
-            hserout2 [dec days," ",dec2 hours,":",dec2 minutes," PID:",dec2 pidCalcCounter," "]
+            gosub read_CH
+            hserout2 [c,": ",dec days," ",dec2 hours,":",dec2 minutes," PID:",dec2 pidCalcCounter," "]
           endif      
           x=ThermostatSensor[pidCalcCounter]
           actual=temperature[x]
-          if actual>20 and actual<160 then  'sensor is giving valid temperatures
+          if actual>40 and actual<175 then  'sensor is giving valid temperatures
           '--------P calculation---------------------------------        
-            ErrorPid=SetPt[pidCalcCounter]-Actual
+            if ThermostatMode.bit4=0 then   'Heating
+              ErrorPid=SetPt[pidCalcCounter]-Actual
+            else                            'Cooling
+              ErrorPid=Actual-SetPt[pidCalcCounter]
+            endif  
             Psign=ErrorPid.15               'remember sign
             Xword=(abs ErrorPid)*Kp
             if Psign=1 then                 'error is negative
@@ -991,7 +1006,11 @@ PID_calc:
               gosub PrintModePlus
             endif
            '--------D calculation---------------------------------
-            Dr=last[pidCalcCounter]-Actual
+            if ThermostatMode.bit4=0 then   'Heating
+              Dr=last[pidCalcCounter]-Actual
+            else                            'Cooling
+              Dr=Actual-last[pidCalcCounter]
+            endif
             Dsign=Dr.7                      'remember sign
             Xword=(abs Dr)*Kd
             if Dsign=1 then                 'negative
@@ -1024,6 +1043,13 @@ PID_calc:
               a=thermostat2[pidCalcCounter]
               gosub SetThermostatOutput         
             endif
+          else                             'Switch off Outputs 
+            DriveOutput=0
+            a=thermostat[pidCalcCounter]
+            gosub SetThermostatOutput
+            DriveOutput=0
+            a=thermostat2[pidCalcCounter]
+            gosub SetThermostatOutput             
           endif
           if PidMode=1 then
             gosub display_LF_CR
@@ -1032,12 +1058,7 @@ PID_calc:
           q=pidCalcCounter
           gosub Set_TBS_Output
         endif
-      else                                  'outside temperature is higher than threshold, switch off all thermostat outputs
-        If ThermostatMode.bit7=1 then
-          ThermostatMode.bit7=0             'Thermostats are off
-          gosub Write_ThermostatMode
-        endif    
-        Thermostats_On=0    
+      else                                  'Thermostats are OFF        
         if ThermostatSensor[pidCalcCounter]<32 then   'Don't switch off for TBS
           a=thermostat[pidCalcCounter]
           DriveOutput=0
@@ -1051,7 +1072,9 @@ PID_calc:
         endif           
       endif
       PidCalcCounter=PidCalcCounter+1
+      PidCalcNow=0
     else
+      PidCalcCheck=0
       PidCalcNow=0
       PidCalcCounter=0
     endif 
@@ -1059,6 +1082,7 @@ PID_calc:
 return
 
 SetThermostatOutput:
+  'delete: In PidCalcCounter zit de thermostat nr
   if a<240 then
     timer_cd[a]=0
     dimmer_value[a]=DriveOutput
@@ -1080,8 +1104,101 @@ SetThermostatOutput:
     endif
     write_yes=1
     write_yes_mod[y]=1
+  elseif a=240 then                         'RTD-10 Temperature setting
+    gosub RTD10
   endif    
 return
+
+RTD10:                                      'PidCalcCounter is used for thermostat Nr
+  if Airco[PidCalcCounter]=1 then           'Airco must be ON
+    'delete
+    'hserout2 ["Cooling+ ON ",dec PidCalcCounter,13,10]
+    u=1                                     'Output ON
+    gosub Set_OnOff_output
+    v=214                                   'Ventilation speed
+    gosub Set_MVP                           'Mode, ventilation speed, poke angle
+    v=215                                   'Mode
+    gosub Set_MVP                           'Mode, ventilation speed, poke angle 
+    v=216                                   'Poke Angle
+    gosub Set_MVP                           'Mode, ventilation speed, poke angle
+    gosub Set_Setpoint                      'Calculate and set Setpoint
+  else                                      'Airco must be OFF
+    'delete
+    'hserout2 ["Cooling+ OFF ",dec PidCalcCounter,13,10]
+    u=0                                     'Output OFF
+    gosub Set_OnOff_output                  
+  endif
+return
+
+Set_Setpoint:
+  eep_addr.byte0=PidCalcCounter             'address
+  eep_addr.byte1=213+(4*thermostatmode.bit4)'page 213 or 217
+  gosub read_eeprom                         'Output to be used
+  if i2cdata<240 then                       'valid output
+    digittotal[0]=i2cdata                     'output
+    if SetPt[pidCalcCounter]<96 then          'below 16 degree
+      x=96
+    elseif SetPt[pidCalcCounter]>112 then     'Above 24 degree
+      x=112
+    else                                      'in range
+      x=SetPt[pidCalcCounter]
+    endif      
+    x=x-96
+    eep_addr.byte0=24+x                       'address
+    eep_addr.byte1=213+(4*thermostatmode.bit4)'page 213 or 217
+    gosub read_eeprom                         'Output to be used
+    'delete
+    'hserout2 ["RTD10 ",dec PidCalcCounter," Out=",dec digittotal[0]," ",dec digittotal[1],13,10]  
+    digitcount=2
+    digittotal[1]=i2cdata
+    gosub output_on
+  endif  
+return
+
+Set_MVP:                                    'Set Mode, ventilation speed, poke angle
+  eep_addr.byte0=PidCalcCounter             'address
+  eep_addr.byte1=v+(4*thermostatmode.bit4)  'page v or v+4
+  gosub read_eeprom
+  if i2cdata<240 then
+    digittotal[0]=i2cdata                   'output    
+    eep_addr.byte0=PidCalcCounter+24        'address
+    eep_addr.byte1=v+(4*thermostatmode.bit4)'page 215 or 219
+    gosub read_eeprom    
+    if i2cdata>0 and i2cdata<63 then        'output ON
+      digitcount=2
+      digittotal[1]=i2cdata
+      gosub output_on
+      'delete
+      'hserout2 ["Cooling+ MVP ON ",dec digittotal[0]," ",dec digittotal[1],13,10]          
+    else                                    'output OFF
+      digitcount=1
+      gosub output_off
+      'delete
+      'hserout2 ["Cooling+ MVP OFF ",dec digittotal[0],13,10]           
+    endif
+  endif
+return
+
+Set_OnOff_output:
+  eep_addr.byte0=PidCalcCounter+100         'address
+  eep_addr.byte1=215+(4*thermostatmode.bit4)'page 215 or 219
+  gosub read_eeprom
+  if i2cdata<240 then
+    digittotal[0]=i2cdata
+    if u=1 then         'Switch output ON
+      digitcount=2
+      digittotal[1]=63
+      gosub output_on
+      'delete
+      'hserout2 ["Cooling+ Output ON ",dec i2cdata,13,10]      
+    else                'Switch output OFF
+      digitcount=1
+      gosub output_off
+      'delete
+      'hserout2 ["Cooling+ Output OFF ",dec i2cdata,13,10]           
+    endif
+  endif       
+Return
 
 PrintModePlus:
   if PidMode=1 then
@@ -1129,8 +1246,8 @@ Rs485_interprete:
         endif  
       endif
       pollTimeInput=WaitTimeInput
-    endif
-    if RS485Message="O" then                'Response Output modules
+    'endif
+    elseif RS485Message="O" then                'Response Output modules
       if rs485string[0]="D" or rs485string[0]="R" or rs485string[0]="O" then
         i=pollNrOut  
         if RS485string[4]="K" and RS485string[0]=Mod_ID0[29+i] and RS485string[1]=Mod_ID1[29+i] and RS485string[2]=Mod_ID2[29+i] and RS485string[3]=Mod_ID3[29+i] then   'Received OK from output Module
@@ -1142,8 +1259,14 @@ Rs485_interprete:
           gosub write_i2c_2
           pollTimeOutput=WaitTimeOutput
           ic=pollNrOut
-          gosub RO_linux                    'Send RO instruction to Master controller
-          if mode_com=1 and AutResponseOL=1 then  'only in API mode and when Auto Response Output List bit is set
+          if mode_com=1 and AutResponse=1 then    'only in API mode and when Auto Response Output "RO" bit is set
+            'hier
+            cid=0
+            gosub RO_linux2                 'Send RO instruction to Master controller
+          endif            
+          if mode_com=1 and AutResponseOL=1 then  'only in API mode and when Auto Response Output "OL" List bit is set
+            'hier
+            cid=0
             gosub send_OL
           endif 
           write_yes_mod[pollNrOut-1]=0
@@ -1160,9 +1283,35 @@ Rs485_interprete:
           Gosub Add_ErrorCount
           gosub send_error   
         endif        
-      endif     
-    endif
-    if RS485Message="F" then                'Response Firmware instruction
+      endif           
+    'endif
+    'hier
+    elseif RS485Message="R" then                'Roller/shutter in Large Installation Mode
+      if rs485string[0]="R" then
+        i=pollNrOutRS
+        gosub Get_ID  
+        if RS485string[4]="K" and RS485string[0]=Digit[0] and RS485string[1]=Digit[1] and RS485string[2]=Digit[2] and RS485string[3]=Digit[3] then   'Received OK from output Module
+          outRS[i-1]=RS485string[5]         'Retricted output module (curtains) will refuse to switch on output0 and 1 for example so the output module must give back the new state of the outputs
+          pollTimeOutput=WaitTimeOutput
+          ic=pollNrOutRS
+          'hier
+          if mode_com=1 and AutResponseSO=1 then  'only in API mode and when Auto Response Output List bit is set
+            cid=0
+            gosub SO_linux2                    'Send SO instruction to Master controller
+          endif 
+          write_yes_modRS[pollNrOutRS-1]=0 
+        else
+          i=pollNrOutRS
+          error_ID[0]= Mod_ID0[29+i]        'Device is not responding with OK or wrong module is responding
+          error_ID[1]= Mod_ID1[29+i]
+          error_ID[2]= Mod_ID2[29+i]
+          error_ID[3]= Mod_ID3[29+i]
+          error_code = 28
+          gosub send_error   
+        endif        
+      endif           
+    'endif    
+    elseif RS485Message="F" then                'Response Firmware instruction
       if rs485string[4]="F" then            'Firmware info came in
         e[0]=rs485string[4]
         e[1]=rs485string[5]
@@ -1182,17 +1331,17 @@ Rs485_interprete:
         e[15]=rs485string[14]                        
         gosub send_API   
       endif 
-    endif
-    if RS485Message="t" then                'Response 16 ports Temp module (old version) 
+    'endif
+    elseif RS485Message="t" then                'Response 16 ports Temp module (old version) 
       if Rs485string[0]="T" and rs485string[1]="0" and rs485string[2]="0" and rs485string[3]="0" then
         for ic=0 to 15
           a=ic+14
-          temperature[a] = RS485string[5+ic]
+          gosub Set_Temperature
           gosub Temperature_Offset
         next ic  
       endif
-    endif      
-    if RS485Message="B" then                'Broadcast message received
+    'endif      
+    elseif RS485Message="B" then                'Broadcast message received
       if mode="I" then
         gosub rs485_receive_init
       endif  
@@ -1260,11 +1409,10 @@ Return
 
 'For more information regarding the implemented RS485 protocol see http://wiki.openmotics.com/index.php/Master_RS485_Cummunication_Protocol
 RS485_poll:
-  if BootLoaderMode=0 then
+  'if BootLoaderMode=0 then
     if controller_in>0 then
       if RS485busy=0 and RS485input=1 then  'Bus is not busy
         if pollTimeInput=0 then             'No need to wait for next input module instruction? 
-          PollInput=1
           pollTimeInput=WaitTimeInput
           pollNr=pollNr+1
           if pollNr>controller_in then pollNr=1
@@ -1341,12 +1489,12 @@ RS485_poll:
         endif 
       endif 
     endif
-  endif      
+  'endif      
 return
                        
 
 RS485_output:
-  if BootLoaderMode=0 then
+  'if BootLoaderMode=0 then
     if write_yes=1 and controller_out>0 then
       if RS485busy=0 and RS485input=0 then  'Bus is not busy 
         if pollTimeOutput=0 then            'No need to wait for next output module instruction?
@@ -1355,7 +1503,6 @@ RS485_output:
           i=pollNrOut    
           if write_yes_mod[i-1]=1 then      
             RS485Message="O"
-            PollInput=0                     'scanning an output
             pollTimeOutput=WaitTimeOutput      
             z=0                             'Calculate Indicate for Output
             gosub Calc_indicate
@@ -1390,7 +1537,66 @@ RS485_output:
       next i
       write_yes=i_bit  
     endif
-  endif  
+  'endif  
+return
+
+'hier
+Get_ID:
+  for x=0 to 3
+    eep_addr.byte1 = 32+i         'page
+    eep_addr.byte0 = 173+x
+    gosub read_eeprom
+    digit[x]=i2cdata
+  next x
+Return
+
+'hier
+RS485_outputRS:
+  'if BootLoaderMode=0 then
+    if write_yes_RS=1 then
+      if RS485busy=0 and RS485input=0 then  'Bus is not busy 
+        if pollTimeOutput=0 then            'No need to wait for next output module instruction?
+          pollNrOutRS=pollNrOutRS+1
+          if pollNrOutRS>controller_out_RS then pollNrOutRS=1
+          i=pollNrOutRS    
+          if write_yes_modRS[i-1]=1 then      
+            RS485Message="R"
+            pollTimeOutput=WaitTimeOutput      
+            z=0                             'Calculate Indicate for Output
+            gosub Calc_indicate
+            CRC2=outRS[i-1]+y
+            gosub Get_ID                        
+            high RS485_mode                 'Send mode
+            e[0]=digit[0]
+            e[1]=digit[1]
+            e[2]=digit[2]
+            e[3]=digit[3]
+            e[4]=outRS[i-1]
+            e[5]=y
+            e[6]=0
+            e[7]=0
+            e[8]=0
+            e[9]=0
+            e[10]=0
+            e[11]=0
+            e[12]=0
+            e[13]=0
+            e[14]="C"
+            e[15]=CRC2.byte1
+            e[16]=CRC2.byte0
+            gosub send_rs485_long
+            gosub prepare_rs485_receive
+            write_yes_modRS[i-1]=0      'Disable 
+          endif  
+        endif 
+      endif
+      i_bit=0
+      for i=1 to controller_out_RS             'check if any output still needs to be addressed
+        i_bit=i_bit|write_yes_modRS[i-1]
+      next i
+      write_yes_RS=i_bit  
+    endif
+  'endif  
 return
 
 Communicate_Oled:
@@ -1448,53 +1654,62 @@ Communicate_input:
   endif                                                            
 return
 
-Analyse_input:
+Analyse_Input:
   inp[i-1]=~Rs485string[4]
   inp[i-1]=inp[i-1]^~inp_invert[i-1]        'When inverted inputs are used, set inp[i-1] right and invert
   x=inp[i-1]^inp_old[i-1] 
-  if inp[i-1]<>0 then                       'An input is activated 
+  if x<>0 then                              'Input has changed
     for t=0 to 7                            'Check which input is activated
       v=((i-1)*8)+t
       q=sel_output[v]     
       if InputEnable[v]=1 then              'input enabled?
-        y=x>>t                              'Check if input has changed
         m=inp[i-1]>>t                       'Check current input state
         n=inp_old[i-1]>>t                   'Check old input state   
-        if y.bit0=1 and m.bit0=1 and n.bit0=0 then      'Button pressed                 
+        if m.bit0=1 and n.bit0=0 then       'Button pressed                 
           gosub Rs232_message
-          if mod_ID0[30+(q/8)]<>"D" then    'Only for Non dimmers         
+          if Switch_type[v]=1 then          'switch type normal
+            if mod_ID0[30+(q/8)]<>"D" then  'Only for Non dimmers                       
+              input_pressed=v
+              gosub input_action
+            else                            'Switch on Dimmer output at button release            
+              press_time[v]=1                
+            endif
+          else                              'switch type toggle          
             input_pressed=v
             gosub input_action
-          else                              'Switch on Dimmer output at button release
-            press_time[v]=1  
+          endif              
+        elseif m.bit0=0 and n.bit0=1 then   'Button released
+          if Switch_type[v]=1 then          'Switch type normal
+            if press_time[v]>0 and press_time[v]<dim_cycle then
+              if dimmer_mem=0 then          'No memory function
+                dimmer_value[q]=63          'Light at maximum
+              endif
+              gosub input_action            
+            endif
+          else                              'switch type toggle
+            gosub Rs232_message
+            input_pressed=v
+            gosub input_action
           endif            
-        elseif y.bit0=0 and m.bit0=1 and n.bit0=1 then  'Button remains pressed
-          gosub Input_dimmer_action 
         endif            
       endif
-    next t                                
-  endif
-  if x>0 and inp[i-1]=0 then                'Button release
+    next t   
+  else                                      'Input has not changed
     for t=0 to 7                            'Check which input is activated
       v=((i-1)*8)+t
-      q=sel_output[v]
-      if InputEnable[v]=1 then                          'input enabled?
-        y=x>>t                                          'Check if input has changed
-        m=inp[i-1]>>t                                   'Check current input state
-        n=inp_old[i-1]>>t                               'Check old input state
-        if y.bit0=1 and m.bit0=0 and n.bit0=1 then      'Button released
-          if press_time[v]>0 and press_time[v]<dim_cycle then
-            if dimmer_mem=0 then            'No memory function
-              dimmer_value[q]=63            'Light at maximum
-            endif
-            gosub input_action            
+      q=sel_output[v]     
+      if InputEnable[v]=1 then              'input enabled?
+        if switch_type[v]=1 then            'Only for push button switches
+          m=inp[i-1]>>t                     'Check current input state
+          if m.bit0=1 then                  'Button remains pressed
+            gosub Input_dimmer_action 
           endif
-        endif            
-      endif
-    next t     
+        endif  
+      endif    
+    next t
   endif
   inp_old[i-1]=inp[i-1]
-  gosub check_pulsecounter  
+  gosub check_pulsecounter    
 return
 
 RS232_message:
@@ -1511,7 +1726,7 @@ Input_action:
   if q<240 then                             'Input toggle or dim must be activated
     gosub Increase_queue_pointer
     queue_type[queue_pointer]=162           'toggle
-    queue_action[queue_pointer]=q    
+    queue_action[queue_pointer]=q        
   else
     if q=240 then                           'Input action list must be loaded
       CurrentInput=v
@@ -1597,102 +1812,156 @@ rs485_receive_init:                         'Routine used when in initialization
       gosub send_api
     endif
   endif
-  b=255
-  c=255
-  DuplicateID=0
-  if RS485string[0]="D" or RS485string[0]="O" or RS485string[0]="R" then
-    w=30                                    'check output modules
-    v=controller_out                        'for subroutine check_duplicates
-    if controller_out=0 then                'otherwise controller should search full list 0-1=255
-      x=1
-    else
-      x=controller_out  
-    endif      
-  else                                      'RS485String[0]="I" or ="B" or ="L"
-    w=0                                     'check input modules
-    v=controller_in                         'for subroutine check_duplicates
-    if controller_in=0 then                 'otherwise controller should search full list 0-1=255
-      x=1
-    else
-      x=controller_in  
-    endif
-  endif  
-  gosub check_duplicates
-  if DuplicateID=0 then                     'No duplicate ID found
-    if b=255 and c=255 then                 'New Module found
-      if mode_com=0 then                    'CLI mode 
-        hserout2 ["New module found with ID:",dec RS485string[0],".",dec rs485string[1],".",dec rs485string[2],".",dec rs485string[3],13,10] 
-      else                                  'API mode
-        u="N"                               'instruction
-        t=0                                 'module number
-        q=0                                 'data
-        gosub MI_linux
-      endif
-      gosub add                             'add new module
-      a=~rs485string[4]
-      if mode_com=0 then                    'CLI mode 
-        hserout2 ["Type ",RS485string[0],dec v," ",bin8 a,13,10]
-      else                                  'API mode
-        u="E"                               'instruction
-        t=v                                 'module number
-        q=a                                 'data
-        gosub MI_linux
-      endif
-    else                                    'Existing Module
-      a=~rs485string[4]
-      if RS485string[0]="D" or RS485string[0]="O" or RS485string[0]="R" then 
-        if mode_com=0 then                  'CLI mode
-          hserout2 ["output ",RS485string[0],dec c," ",dec (c*8)+b-7,"->",dec (c*8)+b,13,10]
-        else                                'API mode
-          gosub existing_module          
-        endif
-      elseif RS485string[0]="I" or RS485string[0]="B" then 
-        if mode_com=0 then                  'CLI mode 
-          hserout2 ["input ",RS485string[0],dec c," ",dec (c*8)+b," "]
-          a=(c*8)+b
-          length=8
-          Spaces=0 
-          gosub eeprom_input_address
-          gosub display_name
-          gosub display_LF_CR
-        else                                'API mode
-          gosub existing_module          
-        endif
-      elseif RS485string[0]="L" then
-        if mode_com=0 then                  'CLI mode 
-          hserout2 ["Existing OLED screen ",RS485string[0],dec c,13,10]
-        else                                'API mode
-          gosub existing_module
-        endif 
-      elseif RS485string[0]="T" then
-        if mode_com=0 then                  'CLI mode 
-          hserout2 ["Temp/Hum/ADC ",RS485string[0],dec c,13,10]
-        else                                'API mode
-          gosub existing_module
-        endif                 
-      endif          
-    endif
-  else                                      'duplicate found
-    if mode_com=0 then                      'CLI mode
-      hserout2 ["Duplicate ID found",13,10]
-    else
-      u="D"                                 'instruction
-      t=0                                   'module number
-      q=0                                   'data
-      gosub MI_linux        
-    endif  
-    error_code = 26
-    gosub send_error
-    gosub bus_init                          'initialize bus again, all non programmed ID's are generated again
-  endif           
+  gosub Check_duplicates
+  gosub Add_modules
   InterpreteSer1=0
-  RCSTA1.4=1                                'enable receiving serial 1
+  RCSTA1.4=1                                'enable receiving serial 1  
+return  
+
+'hier
+Check_duplicates:
+  if LargeInstallation=1 and RS485string[0]="R" then                            'Shutter in a large installation
+    a=controller_out_rs
+    b=33                   'start page in eeprom
+    c=173                  'start byte (ID0) in eeprom
+    d=0                    'controller_out_rs used
+  elseif RS485string[0]="D" or RS485string[0]="O" or RS485string[0]="R" then    'Output module 
+    a=controller_out
+    b=33                   'start page in eeprom
+    c=0                    'start byte (ID0) in eeprom 
+    d=1                    'controller_out used   
+  else                                                                           'Input module
+    a=controller_in
+    b=2                    'start page in eeprom
+    c=0                    'start byte (ID0) in eeprom
+    d=2                    'controller_in used    
+  endif
+  DuplicateID=0
+  if a>0 and a<30 then     'Max 30 modules
+    for ic=1 to a
+      DuplicateID=1
+      for x=0 to 3
+        eep_addr.byte1 = b+ic-1     'page
+        eep_addr.byte0 = c+x
+        Gosub read_eeprom
+        if i2cdata<>RS485string[x] then
+          DuplicateID=0
+        endif
+      next x
+      if duplicateID=1 then 
+        z=ic
+        ic=a     'exit
+      endif 
+    next ic
+  else
+    if a>29 then a=0
+  endif  
+return
+
+'hier
+Add_modules:                'uses variable a, b, c and d from sub check_duplicates
+  if DuplicateID=0 then     'No duplicate
+    gosub add_m        
+  else                      'duplicate
+    if rs485string[5]="N" then    
+      if mode_com=0 then
+        hserout2 ["New module with duplicate ID found, generating new ID, please press button again",13,10]
+      else
+        gosub empty_e
+        e[7]="D"                               'instruction
+        gosub MI_linux
+      endif
+      error_code = 26
+      gosub send_error
+      gosub bus_init                        'initialize bus again, all non programmed ID's are generated again
+    else
+      if mode_com=0 then                    'CLI mode
+        gosub existing_module_CLI
+      else
+        gosub existing_module
+      endif  
+    endif
+  endif
+return
+
+'Hier nog aanvullen
+existing_module_CLI:
+  a=~rs485string[4]
+  if RS485string[0]="D" or RS485string[0]="O" or RS485string[0]="R" then 
+    hserout2 ["output ",RS485string[0],dec z-1," ",dec (z-1)*8,"->",dec ((z-1)*8)+7,13,10]
+  elseif RS485string[0]="I" or RS485string[0]="B" then 
+    hserout2 ["input ",RS485string[0],dec z-1," ",dec (c*8)+b," "]
+    a=(c*8)+b
+    length=8
+    Spaces=0 
+    gosub eeprom_input_address
+    gosub display_name
+    gosub display_LF_CR
+  elseif RS485string[0]="L" then 
+    hserout2 ["Existing OLED screen ",RS485string[0],dec z-1,13,10] 
+  elseif RS485string[0]="T" then
+    hserout2 ["Temp/Hum/ADC ",RS485string[0],dec z-1,13,10]                
+  endif   
+return
+
+add_m:                      'uses variable a, b, c and d from sub check_duplicates
+  if a<29 then              'Module can still be added
+    'hier
+    if RS485string[0]="I" or RS485string[0]="T" or RS485string[0]="L" or RS485string[0]="O" or RS485string[0]="D" or RS485string[0]="R" then
+      for x=0 to 3
+        eep_addr.byte1 = b+a  'page
+        eep_addr.byte0 = c+x
+        i2cdata = RS485string[x]
+        gosub write_eeprom
+      next x
+      eep_addr.byte1 = 0      'page
+      i2cdata = a+1
+      if d=0 then             'program controller_out_rs in eeprom
+        eep_addr.byte0 = 3  
+      elseif d=1 then         'program controller_out in eeprom
+        eep_addr.byte0 = 2  
+      else                    'program controller_in in eeprom
+        eep_addr.byte0 = 1  
+      endif
+      gosub write_eeprom
+      Gosub Read_Controller_InOut     'Copy eeprom values into RAM
+      gosub add_m_comm        'send message about module add
+    endif
+  else                      'Maximum number of modules is reached
+    if mode_com=0 then                      'CLI mode
+      hserout2 ["Max # of modules reached on the bus, module not added",13,10]
+    endif
+  endif   
+return
+
+add_m_comm:
+  a=~rs485string[4]
+  if mode_com=0 then                    'CLI mode 
+    hserout2 ["New module found with ID:",dec RS485string[0],".",dec rs485string[1],".",dec rs485string[2],".",dec rs485string[3]," LI ",dec d,13,10] 
+    hserout2 ["Type ",RS485string[0],dec v," ",bin8 a,13,10]
+  else                                  'API mode
+    gosub empty_e
+    e[7]="N"                               'instruction
+    gosub MI_linux
+    pause 100
+    gosub empty_e
+    e[7]="E"                               'instruction
+    e[8]=controller_in                     'module number
+    e[9]=a                                 'data
+    gosub MI_linux      
+  endif
+  serstring[3]=rs485string[0]
+  serstring[4]=rs485string[1]
+  serstring[5]=rs485string[2]
+  serstring[6]=rs485string[3]
+  gosub activate_device
 return
 
 Existing_module:
-  u="E"                                     'instruction
-  t=c                                       'module number
-  q=a                                       'data
+  gosub empty_e  
+  e[7]="E"                                     'instruction
+  e[8]=c                                       'module number
+  e[9]=a                                       'data
   gosub MI_linux 
 return
 
@@ -1706,46 +1975,8 @@ MI_linux:
   e[4]=RS485string[1]
   e[5]=RS485string[2]
   e[6]=RS485string[3]
-  e[7]=u
-  e[8]=t
-  e[9]=q
+  e[10]=d
   gosub send_api
-return
-
-check_duplicates:
-  for ic=0 to (x-1)
-    if mod_id0[ic+w]=rs485string[0] and mod_id1[ic+w]=rs485string[1] and mod_id2[ic+w]=rs485string[2] and mod_id3[ic+w]=rs485string[3] then
-      if rs485string[5]="N" then            'duplicate ID found
-        gosub bus_init
-        if mode_com=0 then                  'CLI mode
-          hserout2 ["New module with duplicate ID found, generating new ID, please press button again",13,10]
-        else                                'API mode
-          u="D"                             'instruction
-          t=0                               'module number
-          q=0                               'data
-          gosub MI_linux 
-        endif
-        DuplicateID=1
-      else
-        if v<>0 then                        'v=controller_in or controller_out
-          gosub rs485_calc1
-        endif  
-      endif
-    endif
-  next ic
-return
-
-rs485_calc1:
-  a=~rs485string[4]
-  for j=0 to 7 
-    if a=1 then
-      b=j
-      c=ic
-      j=7                                   'exit
-      ic=x-1
-    endif
-    a=a>>1   
-  next j
 return
 
 Calc_indicate:     
@@ -1936,6 +2167,8 @@ check_queue_sub:
     if queue_action[i]=2 then
       gosub normal_Powerstate_2
     endif
+  elseif queue_type[i]>99 and queue_type[i]<112 then 'Store/Shutter action in Large Installations
+    Gosub StoreShutter_action    
   elseif queue_type[i]=65 then              'Output indicate
     gosub Queue_output_indicate
   elseif queue_type[i]=66 then              'Input indicate
@@ -1977,26 +2210,18 @@ check_queue_sub:
       write_yes_mod[u-1]=1
     next u
     write_yes=1
-    pause 1000    
+    pause 1000
+  elseif queue_type[i]=60 then              'Sent Event
+    gosub Send_EV    
+  elseif queue_type[i]=80 then              'Cooling mode?
+    gosub Set_Cooling 
+  elseif queue_type[i]=81 then              'Enable/Disable Airco (RTD-10)
+    gosub Set_Airco                  
   elseif queue_type[i]=254 then             'reset processor
     asm
       reset
     endasm                                                                   
   endif  
-return
-
-add_timer_queue:
-    'add action to the timer queue     
-    timer_action[timer_queue_pointer]=Queue_action[i]
-    timer_type[timer_queue_pointer]=Queue_type[i]
-    if DelayedTime>0 and DelayedTime<250 and ActionButtonRelease=0 then   'Action after x seconds
-      timer_input[timer_queue_pointer]=240
-      timer_seconds[timer_queue_pointer]=DelayedTime
-    else                                                                  'Action at button release
-      timer_input[timer_queue_pointer]=CurrentInput
-      timer_seconds[timer_queue_pointer]=250
-    endif   
-    if timer_queue_pointer<(timer_queue-1) then timer_queue_pointer=timer_queue_pointer+1   
 return
 
 
@@ -2126,11 +2351,11 @@ return
 Timer_group:
   if CurrentInput<240 and timer_queue_pointer<(timer_queue-1) then  'only execute when valid input is used AND when Timer_queue is not full
     'add action to the timer queue
-    timer_action[timer_queue_pointer]=Queue_action[i]
-    timer_type[timer_queue_pointer]=2                               'Execute group action in timer queue if input is pressed more than x seconds
-    timer_input[timer_queue_pointer]=CurrentInput
-    timer_seconds[timer_queue_pointer]=Queue_Type[i]-205
-    if timer_queue_pointer<(timer_queue-1) then timer_queue_pointer=timer_queue_pointer+1     
+    action[5]=Queue_action[i]
+    action[4]=2                               'Execute group action in timer queue if input is pressed more than x seconds
+    action[6]=CurrentInput
+    action[3]=Queue_Type[i]-205
+    gosub add_timer_queue2     
   endif
 return
 
@@ -2138,7 +2363,7 @@ correct_setpt:
   for pid=0 to (controllers-1)
      if setpt[pid]>150 then setpt[pid]=88   '12 degree celcius
   next pid
-  PidCalcNow=1 
+  PidCalcCheck=1 
 return
 
 Set_Free_Variables:
@@ -2290,7 +2515,7 @@ check_setpoint:
 return
   
 Thermostat_action_sub:
-  eep_addr.byte1=142                        'page 142
+  eep_addr.byte1=142+(59*thermostatmode.bit4)                        'page 142 or 201
   eep_addr.byte0=(b*32)+a+32
   gosub read_eeprom  
   setpt[a]=i2cdata
@@ -2310,11 +2535,11 @@ return
 Thermostat_day1_day2:
   eep_addr.byte0=((c-1)*32)+a
   if b=0 then                               'day1
-    eep_addr.byte1=196                      'page 196
+    eep_addr.byte1=196+(14*thermostatmode.bit4)        'page 196 or 210
   elseif b=1 then                           'day2
-    eep_addr.byte1=197                      'page 197
+    eep_addr.byte1=197+(14*thermostatmode.bit4)        'page 197 or 211
   else                                      'night
-    eep_addr.byte1=198                      'page 198  
+    eep_addr.byte1=198+(14*thermostatmode.bit4)        'page 198 or 212  
   endif  
   gosub read_eeprom 
 return
@@ -2333,6 +2558,356 @@ output_dim:
     dimmer_value[q]=dimmer_value[q]-v
     if dimmer_value[q]>63 or dimmer_value[q]<dim_minimum then dimmer_value[q]=dim_minimum  
   endif
+return
+
+' Store/Shutter actions when LargeInstallation is enabled ---------------------
+
+'hier
+StoreShutter_action:
+if queue_action[i]<120 then
+  if queue_type[i]=100 then                 'Store x up
+    x=queue_action[i]//4
+    y=queue_action[i]/4
+    gosub Store_Up
+    action[4]=102                           'Stop Individual Store
+    gosub Remove_timer                      'Erase
+    i_bit=1                                 'up
+    gosub add_timer                         'Add
+  elseif queue_type[i]=101 then             'Store x down
+    x=queue_action[i]//4
+    y=queue_action[i]/4
+    gosub Store_down
+    action[4]=102                           'Stop Individual Store
+    gosub Remove_timer                      'Erase
+    i_bit=0                                 'down
+    gosub add_timer                         'Add
+  elseif queue_type[i]=102 then             'Store x stop
+    x=queue_action[i]//4
+    y=queue_action[i]/4
+    gosub Store_Stop
+    action[4]=102                           'Stop Individual Store
+    gosub Remove_timer                      'Erase
+  elseif queue_type[i]=103 then             'Store up/stop/down/stop
+    UpDwn=1                                 'Up/Dwn function enabled
+    gosub Prep_Store_action
+  elseif queue_type[i]=104 then             'Group x Up
+    c=2
+    gosub Store_group
+    action[4]=106                           'Stop group Store
+    gosub Remove_timer                      'Erase
+    i_bit=1                                 'Up
+    gosub add_timer                         'Add
+  elseif queue_type[i]=105 then             'Group x down
+    c=1
+    gosub Store_group
+    action[4]=106                           'Stop group Store
+    gosub Remove_timer                      'Erase
+    i_bit=0                                 'Down
+    gosub add_timer                         'Add
+  elseif queue_type[i]=106 then             'Group x Stop               
+    c=0
+    gosub Store_group
+    action[4]=106                           'Erase group Store from queue
+    gosub Remove_timer                      'Erase
+  elseif queue_type[i]=107 then             'Group x up/stop/down/stop               
+    UpDwn=1
+    gosub Prep_Group_Action
+  elseif queue_type[i]=108 then             'Store up/stop/up/stop
+    UpDwn=0                                 'Up/Dwn function disabled
+    UpDir=1                                 'Up
+    gosub Prep_Store_action
+  elseif queue_type[i]=109 then             'Store down/stop/down/stop
+    UpDwn=0                                 'Up/Dwn function disabled
+    UpDir=0                                 'Down
+    gosub Prep_Store_action
+  elseif queue_type[i]=110 then             'Group x up/stop/up/stop               
+    UpDwn=0
+    UpDir=1
+    gosub Prep_Group_Action
+  elseif queue_type[i]=111 then             'Group x down/stop/down/stop               
+    UpDwn=0
+    UpDir=0
+    gosub Prep_Group_Action                   
+  endif
+endif  
+return
+
+Prep_Group_Action:
+  c=3
+  w=0
+  StoreMove=0
+  gosub Store_group                       'Check if any stores are moving
+  c=3
+  w=1
+  gosub Store_group                       'Execute Stop or Up or Down
+  action[4]=106                           'Erase group Store from queue
+  gosub Remove_timer                      'Erase
+  if StoreMove=0 then gosub add_timer     'Add 
+Return
+
+Prep_Store_action:
+  c=4
+  gosub Store_1Action
+  action[4]=102                           'Stop Individual Store
+  gosub Remove_timer                      'Erase
+  if StoreMove=0 then gosub add_timer     'Add
+return    
+
+Remove_timer:
+  action[5]=queue_action[i]
+  gosub remove_timer_queue 
+return
+
+Remove_timer_queue:                         'Remove item from timer queue, action[4] and action[5] used
+  if timer_queue_pointer>0 then
+    for t=timer_queue_pointer+1 to 1 step -1
+      if action[4]=timer_type[t-1] and action[5]=timer_action[t-1] then     'Already exist?
+        timer_action[t-1]=255                                             'Remove from queue
+        timer_type[t-1]=255
+        timer_input[t-1]=255
+        timer_seconds[t-1]=255
+      endif
+    next t    
+  endif
+return
+
+Add_timer:
+  a=queue_action[i]
+  b=queue_action[i]/4
+  c=queue_action[i]//4
+  if action[4]=102 then                     'Individual store
+    eep_addr.byte1 = 33+b                   'page    
+    if i_bit=1 then                         'Up
+      eep_addr.byte0 = 177+(c*2)  
+    else                                    'down
+      eep_addr.byte0 = 178+(c*2)
+    endif      
+  else                                      'Group store
+    eep_addr.byte1 = 64                     'page
+    if i_bit=1 then                         'Up
+      eep_addr.byte0 = a*2
+    else
+      eep_addr.byte0 = (a*2)+1
+    endif     
+  endif
+  gosub read_eeprom
+  'delete
+  'hserout2 ["Add Timer ",dec eep_addr.byte1," ",dec eep_addr.byte0," ",dec i2cdata,13,10]
+  if i2cdata<250 then
+    action[3]=i2cdata                       'set seconds
+  else
+    action[3]=239  
+  endif
+  action[6]=240  
+  gosub add_timer_queue2
+return
+
+Store_group:
+  if controller_out_RS>0 then
+    for ic=1 to controller_out_RS           'Check all Shutter/Store controllers in Large Installation mode
+      for a=0 to 3                          'Check all stores per module
+        for b=0 to 1                        'Check the 2 groups per store
+          eep_addr.byte1 = 63                   'page
+          eep_addr.byte0 = ((ic-1)*8)+(a*2)+b
+          Gosub read_eeprom
+          if i2cdata=queue_action[i] then       'Group found, execute Up for that store
+            x=(((ic-1)*4)+a)//4
+            y=(((ic-1)*4)+a)/4
+            if c=2 then
+              gosub Store_up
+            elseif c=1 then
+              gosub Store_down
+            elseif c=3 then
+              gosub store_1action 
+            else
+              gosub Store_Stop
+            endif      
+          endif
+        next b
+      next a
+    next ic
+    if c=3 and w=1 then                         'group up/stop/down/stop has been performed
+      if StoreMove=0 then
+        v=queue_action[i]
+        if val_bit[90+v]=0 then
+          val_bit[90+v]=1
+        else
+          val_bit[90+v]=0
+        endif    
+      endif
+    endif
+    c=0
+  endif  
+return
+
+Store_1Action:
+  z=%00000011
+  z=z<<(x*2)
+  u=outRS[y]&z
+  v=queue_action[i]
+  if c=3 and w=0 then                       'Check if any store is moving (group only)
+    if u<>0 then                            'Store is moving
+      StoreMove=1
+    endif
+  elseif c=3 and w=1 then                   'Execute action (stop, or up or down)(group only)
+    if StoreMove=1 then
+      gosub Store_Stop
+    else
+      if UpDwn=1 then
+        if val_bit[90+v]=0 then      
+          gosub Store_Up
+        else
+          gosub store_down
+        endif
+      else
+        if UpDir=1 then
+          gosub Store_Up
+        else
+          gosub store_down
+        endif
+      endif    
+    endif
+  else                                      'Execute action (stop, or up or down)(Non group)
+    x=queue_action[i]//4
+    y=queue_action[i]/4
+    z=%00000011
+    z=z<<(x*2)    
+    u=outRS[y]&z
+    if u=0 then                             'Store is not moving
+      StoreMove=0
+      if UpDwn=1 then
+        if val_bit[120+v]=0 then                              
+          gosub Store_Up
+          val_bit[120+v]=1
+        else
+          gosub store_down
+          val_bit[120+v]=0
+        endif
+      else
+        if UpDir=1 then
+          gosub Store_Up
+        else
+          gosub store_down
+        endif     
+      endif    
+    else                                      'Store is moving
+      StoreMove=1
+      gosub Store_Stop
+    endif
+  endif   
+return
+
+Get_UpDownConfig:
+  eep_addr.byte1 = 33+y     'page
+  eep_addr.byte0 = 185+x
+  Gosub read_eeprom
+  if i2cdata.bit0=i_bit then
+    z=z<<(x*2)
+  else
+    z=z<<((x*2)+1)
+  endif  
+return
+
+Store_Up:
+    i_bit=1
+    z=%00000001
+    gosub Get_UpDownConfig  
+    outRS[y]=outRS[y]|z
+    write_yes_rs=1
+    write_yes_modRS[y]=1
+return
+
+Store_Down:
+    i_bit=0
+    z=%00000001
+    gosub Get_UpDownConfig  
+    outRS[y]=outRS[y]|z
+    write_yes_rs=1
+    write_yes_modRS[y]=1
+return
+
+Store_Stop:
+    'gosub Get_UpDownConfig
+    z=%00000011
+    z=z<<(x*2)
+    z=~z
+    outRS[y]=outRS[y]&z    
+    write_yes_rs=1
+    write_yes_modRS[y]=1
+return
+
+Set_Cooling:
+  gosub Thermostat_output_off       'Switch off all thermostat and pump outputs in the current mode (cooling or heating)
+  if queue_action[i]=0 then         'Cooling Disabled, Heating enabled
+    thermostatmode.bit4=0
+    'delete
+    'hserout2 ["Cooling Disabled",13,10]
+  elseif queue_action[i]=1 then     'Cooling Enabled (Heating disabled) but Cooling OFF
+    thermostatmode.bit4=1
+    thermostatmode.bit7=0
+    for u=0 to 23                   'Also switch OFF RTD-10 Airco units
+      Airco[u]=0
+    next u
+    gosub OnOffAirco
+    'delete
+    'hserout2 ["Cooling Enabled, Cooling OFF",13,10]  
+  else                              'Cooling Enabled (Heating disabled) and Cooling ON
+    thermostatmode.bit4=1
+    thermostatmode.bit7=1
+    'delete
+    'hserout2 ["Cooling Enabled, Cooling ON",13,10]    
+  endif
+  gosub write_thermostatmode
+  gosub read_thermostat_par
+  gosub Set_CoolingHeating
+return
+
+Set_airco:
+  u=queue_action[i]  
+  if queue_action[i]<24 then        'Enable Airco
+    Airco[u]=1
+    PidCalcCounter=u
+    'delete
+    'hserout2 ["+ASB[",dec u,"]=",dec Airco[u]," ",dec queue_action[i],13,10]    
+    gosub RTD10    
+  endif
+  if queue_action[i]>99 and queue_action[i]<124 then        'Disable Airco
+    Airco[u-100]=0
+    PidCalcCounter=u-100
+    'delete
+    'hserout2 ["-ASB[",dec u-100,"]=",dec Airco[u-100]," ",dec queue_action[i],13,10]    
+    gosub RTD10    
+  endif   
+return
+
+OnOffAirco:        'Switch ON or OFF Airco RTD-10 when changing mode
+  for PidCalcCounter=0 to 23
+    gosub RTD10
+  next PidCalcCounter
+return
+
+Set_CoolingHeating:
+  ok=0
+  for b=0 to 3
+    a=(thermostatmode.bit4)*8
+    eep_addr.byte1 = 199            'page
+    eep_addr.byte0 = a+(b*2)
+    Gosub read_eeprom
+    if i2cdata<>255 then
+      digittotal[0]=i2cdata
+      eep_addr.byte0 = a+(b*2)+1
+      Gosub read_eeprom
+      if i2cdata=0 then             'Output off
+        digitcount=1
+        gosub output_off
+      else                          'Output on
+        digitcount=2
+        digittotal[1]=i2cdata
+        gosub output_on
+      endif  
+    endif
+  next b
+  ok=1  
 return
 
 ' OUTPUT On/OFF action --------------------------------------------------------
@@ -2436,6 +3011,7 @@ Toggle_lights:
       ToggleFollowActive=1
       ToggleFollowData=out[q/8]>>(q//8)
     endif
+    gosub dimmer_follow    
   endif
   OdCode=5
   OdOutputNr=q
@@ -2502,16 +3078,14 @@ simple_decision:
       b=inp[x]>>y                           'put selected bit on BIT0
       if b.bit0=1 and timer_queue_pointer<(timer_queue-1) then  'selected input is active -> add action in the timer queue
         'add action to the timer queue
-        timer_action[timer_queue_pointer]=action[5]
-        timer_type[timer_queue_pointer]=action[4]
-        timer_input[timer_queue_pointer]=CurrentInput
-        timer_seconds[timer_queue_pointer]=action[3]      
-        if timer_queue_pointer<(timer_queue-1) then timer_queue_pointer=timer_queue_pointer+1             
+        'hier
+        action[6]=CurrentInput      
+        Gosub add_timer_queue2             
       endif
-    elseif a.bit2=1 and a.bit1=0 and a.bit0=1 then  'check power level  
+    'elseif a.bit2=1 and a.bit1=0 and a.bit0=1 then  'check power level  
       'TBC
      
-    elseif a.bit2=1 and a.bit1=1 and a.bit0=0 then  'check time  
+    'elseif a.bit2=1 and a.bit1=1 and a.bit0=0 then  'check time  
       'TBC
       
     elseif a.bit2=1 and a.bit1=1 and a.bit0=1 then  'check validation bit  
@@ -2784,21 +3358,16 @@ all_outputs_off:
   next u 
 return
 
-RO_Linux:                                   'Send "RO" instruction to Linux, variable Mod_ID (1-30) is used
-  if mode_com=1 and autresponse=1 then      'Only in advanced mode
-    gosub RO_linux2
-  endif  
-  cid=0  
+RO_Linux2:
+  if write_yes_mod[ic-1]=1 then         'only changes in module will be communicated
+    x=(ic-1)*8
+    Hserout2 ["RO",cid,ic-1,0,0,0,out[ic-1],dimmer_value[x],dimmer_value[x+1],dimmer_value[x+2],dimmer_value[x+3],dimmer_value[x+4],dimmer_value[x+5],dimmer_value[x+6],dimmer_value[x+7],13,10]
+  endif
+  cid=0
 return
 
-RO_Linux2:
-    for ic=1 to controller_out
-      if write_yes_mod[ic-1]=1 then         'only changes in module will be communicated
-        x=(ic-1)*8
-        Hserout2 ["RO",cid,ic-1,0,0,0,out[ic-1],dimmer_value[x],dimmer_value[x+1],dimmer_value[x+2],dimmer_value[x+3],dimmer_value[x+4],dimmer_value[x+5],dimmer_value[x+6],dimmer_value[x+7],13,10]
-      endif
-    next ic
-    cid=0
+SO_Linux2:
+  Hserout2 ["SO",cid,ic-1,0,0,0,outRS[ic-1],13,10]
 return
 
 'For the complete error list see http://wiki.openmotics.com/index.php/Error_Codes
@@ -2870,6 +3439,32 @@ send_AE:
   endif
   cid=0
 return
+
+send_AE2:
+  if mode_com=1 then
+    gosub empty_e
+    e[0]="a"
+    e[1]="e"
+    e[2]=cid
+    e[3]=0
+    e[4]="O"
+    e[5]="K"
+    gosub send_api     
+  endif
+  cid=0
+return
+
+send_EV:
+  if mode_com=1 then
+    gosub empty_e
+    e[0]="E"
+    e[1]="V"
+    e[2]=0
+    e[3]=queue_action[i]
+    gosub send_api     
+  endif
+  cid=0
+Return
 
 send_AD:
   if mode_com=1 then
@@ -2996,7 +3591,7 @@ send_RS:
       Hserout2 ["rs",cid]
     endif
     hserout2 [pid,temperature[x],setpt[pid]]
-    eep_addr.byte1 = 142
+    eep_addr.byte1 = 142+(59*thermostatmode.bit4)       'Page 142 o 201
     for ic=1 to 6
       eep_addr.byte0 = (32*ic)+pid
       gosub read_eeprom
@@ -3006,7 +3601,7 @@ send_RS:
     CRC=CRC+x+a+c+dimmer_value[a]+dimmer_value[c]+temperature[outside_sensor]+ThermostatMode
     Hserout2 [x,a,c,dimmer_value[a],dimmer_value[c],temperature[outside_sensor],ThermostatMode]
     for ic=0 to 15
-      eep_addr.byte1 = 187 + (pid/16)
+      eep_addr.byte1 = 187 + (pid/16)+(17*thermostatmode.bit4)      'Start page 187 or 204
       eep_addr.byte0 = ((pid//16)*16)+ic
       Gosub read_eeprom     
       b=i2cdata
@@ -3021,7 +3616,7 @@ send_RS:
     Hserout2 [Kp,Ki,Kd,IntThresh,Temp_threshold,days,hours,minutes]
     for ic=0 to 6                           'retrieve timings out of eeprom
       for t=0 to 3
-        eep_addr.byte1 = 189 + (ic/2)
+        eep_addr.byte1 = 189 + (ic/2)+(17*thermostatmode.bit4)      'Start page 189 or 206
         eep_addr.byte0 = (128*(ic//2))+(pid*4)+t
         Gosub read_eeprom  
         CRC=CRC+i2cdata   
@@ -3078,7 +3673,7 @@ Rs232_interprete:
       elseif (serstring[0] = "B") and (serstring[1] = "A") then     'Execute Basic Action 
         gosub instr_BA                                              '"BA                                         
       elseif (serstring[0] = "T") and (serstring[1] = "M") then     'Read Thermostat Mode
-        gosub instr_TM                 
+        gosub instr_TM                                              '"TM
       elseif (serstring[0] = "R") and (serstring[1] = "S") then     'read thermostat data, detailed information of 1 thermostat  
         gosub instr_RS                                              '"RS                                        
       elseif (serstring[0] = "O") and (serstring[1] = "O") then     'read output Data, Give list of outputs that are ON 
@@ -3105,21 +3700,32 @@ Rs232_interprete:
         gosub instr_DI                                              '"DI   
       elseif (serstring[0] = "R") and (serstring[1] = "O") then     'Read output                                       
         for ic=1 to controller_out                                  '"RO
-          write_yes_mod[ic-1]=1                                     'All output modules
-          gosub RO_linux2
-        next ic    
+          write_yes_mod[ic-1]=1
+          gosub RO_linux2                                     'All output modules
+        next ic 
+      elseif (serstring[0] = "S") and (serstring[1] = "O") then     'Read output Roller/Shutter in Large Installation mode                                                                                          '"ro
+        cid=serstring[2]
+        ic=serstring[3]+1
+        gosub SO_linux2                                       'All output modules           
       elseif (serstring[0] = "R") and (serstring[1] = "E") then     'Read Eeprom
         gosub instr_RE                                              '"RE       
       elseif (serstring[0] = "W") and (serstring[1] = "E") then     'Write Eeprom
         gosub instr_WE       
       elseif (serstring[0] = "e") and (serstring[1] = "c") then     'Error Clear (clear all error counters)
         gosub instr_ec                                              '"ec  
-      elseif (serstring[0] = "A") and (serstring[1] = "E") then     'Activate data in Eeprom (copy into RAM)                                                                                        '"AE
+      elseif (serstring[0] = "A") and (serstring[1] = "E") then     'Activate data in Eeprom (copy into RAM)                          '"AE
         gosub activate_eeprom 
-        gosub send_AE    
+        gosub send_AE 
+      elseif (serstring[0] = "a") and (serstring[1] = "e") then     'Activate data in Eeprom for RTD10 function                       '"ae
+        gosub OnOffAirco 
+        gosub send_AE2           
       elseif (serstring[0] = "A") and (serstring[1] = "D") then     'Activate Device                                                  '"AD
         gosub activate_device
-        gosub send_AD        
+        gosub send_AD 
+      elseif (serstring[0] = "A") and (serstring[1] = "R") then     '"AR Airco read                                                  '"AD
+        gosub instr_AR 
+      elseif (serstring[0] = "A") and (serstring[1] = "W") then     '"AW Airco write                                                 '"AD
+        gosub instr_AW                       
       elseif (serstring[0] = "C") and (serstring[1] = "M") then     'Command mode (switch between advanced mode and simple mode (command line)                                      
         if serstring[2]="1" then                                    '"CM
           mode_com=1                                                'advanced mode - API
@@ -3209,6 +3815,36 @@ return_api_ok:
   e[3]="O"
   e[4]="K"
   gosub send_api 
+return
+
+instr_AR:     '"AR
+  CID=Serstring[2]
+  u="A"
+  v="R"
+  gosub instr_AR_AW_sub
+return
+
+instr_AW:     '"AW
+  if Serstring[3]<24 then  'Thermostat Nr must be below 24
+    u=Serstring[3]
+    if Serstring[4]=0 then
+      Airco[u]=0           'Switch off airco with RTD-10
+    else
+      Airco[u]=1           'Switch on airco with RTD-10
+    endif
+  endif
+  CID=Serstring[2]
+  u="A"
+  v="W"
+  gosub instr_AR_AW_sub
+return
+
+instr_AR_AW_sub:
+  Hserout2 [u,v,cid]
+  for a=0 to 23
+    hserout2 [Airco[a]]
+  next a 
+  gosub display_LF_CR
 return
 
 instr_RE:
@@ -3318,10 +3954,10 @@ send_RD:
   gosub Timer_value_read                    'Retreive Timer Value
   t_word=timer
   t_word2=timer_cd[x] 
-  eep_addr.byte1=33+v
-  eep_addr.byte0=141+u                      'address (Max Power)
-  gosub read_eeprom
-  q=i2cdata
+  'eep_addr.byte1=33+v
+  'eep_addr.byte0=173+u                      'address (Max Power), this eeprom address is now in use for LargeInstallation
+  'gosub read_eeprom
+  q=255
   eep_addr.byte0=157+u                      'address (Floor Level)
   gosub read_eeprom
   t=i2cdata
@@ -3380,11 +4016,11 @@ instr_WD:
       eep_addr.byte0=149+u                  'address (Output Type)
       gosub write_eeprom
     endif
-    if a=2 then                             'Max Power     
-     eep_addr.byte1=33+v
-     eep_addr.byte0=141+u                   'address (Max Power)
-     gosub write_eeprom
-    endif
+    'if a=2 then                             'Max Power, address is now in use by large installations     
+    ' eep_addr.byte1=33+v
+    ' eep_addr.byte0=173+u                   'address (Max Power)
+    ' gosub write_eeprom
+    'endif
     if a=3 then                             'Floor Level     
       eep_addr.byte1=33+v
       eep_addr.byte0=157+u                  'address (Floor Level)
@@ -3459,26 +4095,26 @@ interprete_thermostat_instr:
       gosub write_i2c_2                     'write setpoint in RAM memory of DS1307
     endif  
     if a>0 and a<7 then                     'programmed setpoint
-      eep_addr.byte1 = 142
+      eep_addr.byte1 = 142+(59*thermostatmode.bit4)                 'page 142 or 201
       eep_addr.byte0 = (32*a)+pid
       gosub write_eeprom
     endif
     if a>6 and a<18 then
       if a=7 then                           'P parameter
         eep_addr.byte0=pid*4                'address
-        eep_addr.byte1=141                  'page
+        eep_addr.byte1=141+(59*thermostatmode.bit4)                  'page 141 or 200
         gosub write_eeprom           
       elseif a=8 then                       'I parameter
         eep_addr.byte0=(pid*4)+1            'address
-        eep_addr.byte1=141                  'page
+        eep_addr.byte1=141+(59*thermostatmode.bit4)                  'page 141 or 200
         gosub write_eeprom             
       elseif a=9 then                       'Int parameter
         eep_addr.byte0=(pid*4)+3            'address
-        eep_addr.byte1=141                  'page   
+        eep_addr.byte1=141+(59*thermostatmode.bit4)                  'page 141 or 200  
         gosub write_eeprom                      
       elseIF a=10 then                      'D parameter
         eep_addr.byte0=(pid*4)+2            'address
-        eep_addr.byte1=141                  'page    
+        eep_addr.byte1=141+(59*thermostatmode.bit4)                  'page 141 or 200   
         gosub write_eeprom            
       elseif a=11 then                      'Temp threshold
         eep_addr.byte0=17                   'address
@@ -3505,17 +4141,17 @@ interprete_thermostat_instr:
         gosub thermostat_timing
       elseif a=15 then                      'Room sensor
         ThermostatSensor[pid]=i2cdata
-        eep_addr.byte1=144                  'Page
+        eep_addr.byte1=144+(59*thermostatmode.bit4)                  'Page 144 or 203
         eep_addr.byte0=pid+8                'address
         gosub write_eeprom            
       elseif a=16 then                      'Output1
         thermostat[pid]=i2cdata
-        eep_addr.byte1=142                  'Page
+        eep_addr.byte1=142+(59*thermostatmode.bit4)                  'Page 142 or 201
         eep_addr.byte0=pid                  'address
         gosub write_eeprom            
       elseif a=17 then                      'Output2
         thermostat2[pid]=i2cdata 
-        eep_addr.byte1=142                  'Page
+        eep_addr.byte1=142+(59*thermostatmode.bit4)                  'Page 142 or 201
         eep_addr.byte0=pid+224              'address
         gosub write_eeprom
       endif
@@ -3528,7 +4164,7 @@ interprete_thermostat_instr:
       gosub programmed_temperature
       gosub write_eeprom        
     endif                       
-    PidCalcNow=1 
+    PidCalcCheck=1 
     instrOK=1
   else
     error_code=30
@@ -3539,19 +4175,19 @@ return
 programmed_timings:
   t=(a-18)//4
   u=(a-18)/4 
-  eep_addr.byte1 = 189 + (u/2)
+  eep_addr.byte1 = 189 + (u/2) +(17*thermostatmode.bit4)      'Start page 189 or 206
   eep_addr.byte0 = (128*(u//2))+(pid*4)+t
 return
 
 programmed_temperature:
   if a<53 then                              'day1
-    eep_addr.byte1=196                      'page 196
+    eep_addr.byte1=196+(14*thermostatmode.bit4)        'page 196 or 210
     eep_addr.byte0=((a-46)*32)+pid
   elseif a<60 then                          'day2
-    eep_addr.byte1=197                      'page 197
+    eep_addr.byte1=197+(14*thermostatmode.bit4)        'page 197 or 211
     eep_addr.byte0=((a-53)*32)+pid
   else                                      'night
-    eep_addr.byte1=198                      'page 198
+    eep_addr.byte1=198+(14*thermostatmode.bit4)        'page 198 or 212
     eep_addr.byte0=((a-60)*32)+pid    
   endif 
 return
@@ -3620,12 +4256,12 @@ instr_cm:
   else 
     MaxChar=18
   endif
-  if serstring[4]=0 then                    'BootLoaderMode
-    BootLoaderMode=0                        'Normal operation
-  else
-    BootLoaderMode=1                        'Slave BootloaderMode, stop normal communication with input and output modules,silent mode
-    RS485Busy=0
-  endif  
+  'if serstring[4]=0 then                    'BootLoaderMode
+  '  BootLoaderMode=0                        'Normal operation
+  'else
+  '  BootLoaderMode=1                        'Slave BootloaderMode, stop normal communication with input and output modules,silent mode
+  '  RS485Busy=0
+  'endif  
   gosub empty_e
   e[0]="c"
   e[1]="m"
@@ -3733,6 +4369,7 @@ instr_tl:
     CRC=CRC+setpt[a]
   next a
   gosub send_crc
+  gosub display_LF_CR
   gosub display_LF_CR 
 return
 
@@ -3846,6 +4483,7 @@ instr_rn:
   e[2]=cid
   e[3]=controller_in
   e[4]=controller_out
+  e[5]=controller_out_rs
   gosub send_api    
 return
 
@@ -3856,21 +4494,14 @@ instr_IF:
   next j
   charpointer=3
   reccounter=17
-  if serstring[2]="A" then                  'Simple action
-    instruction=18 
-    Gosub Run_instruction  
-  endif
-  if serstring[2]="D" then                  'Simple decision
-    instruction=21 
-    Gosub Run_instruction  
-  endif
-  if serstring[2]="G" then                  'Group action
-    instruction=24 
-    Gosub Run_instruction  
-  endif
-  if serstring[2]="S" then                  'Scheduled action activate
-    instruction=52 
-    Gosub Run_instruction  
+  if serstring[2]="D" then                  'Output ON with Dimmer value
+    gosub convert_dec
+    t_word=digittotal[0]
+    a=t_word.byte0
+    t_word=digittotal[1]
+    b=t_word.byte0
+    digitcount=2
+    gosub output_on  
   endif
   if serstring[2]="Q" then                  'Add instruction to the queue
     gosub convert_dec
@@ -4264,6 +4895,10 @@ interprete_cmd:
       lookup j,["STRCM1%"],test
       cmd=95      
       gosub test_command
+      'delete
+      lookup j,["timer queue list%"],test
+      cmd=97      
+      gosub test_command       
       lookup j,["pulse counter list%"],test
       cmd=98      
       gosub test_command      
@@ -4617,6 +5252,9 @@ Run_instruction:
         gosub strcm0           
       elseif instruction=95 then            'STRCM1
         gosub exit1
+      'delete  
+      elseif instruction=97 then            
+        gosub timer_queue_list        
       elseif instruction=98 then            
         gosub pulse_counter_list
       elseif instruction=99 then            
@@ -5132,67 +5770,9 @@ firmware_version:
 return
 
 thermostat_mode_read:
-  hserout2 ["Thermostat ON=",dec ThermostatMode.bit7,13,10,"Automatic Mode=",dec ThermostatMode.bit3,13,10,BIN8 ThermostatMode,13,10]
+  gosub read_CH
+  hserout2 [c,": Thermostat ON=",dec ThermostatMode.bit7,13,10,"Automatic Mode=",dec ThermostatMode.bit3,13,10,BIN8 ThermostatMode,13,10]
   gosub send_mes_ok
-return
-
-add:
-  if (controller_in + controller_out)<61 then
-    if rs485string[0]="I" or rs485string[0]="T" or rs485string[0]="L" then      'new input module
-      ok=0                                  'ok can't be sent on console
-      digitcount=5
-      digittotal[0]=controller_in
-      Digittotal[1]=rs485string[0]
-      digittotal[2]=rs485string[1]
-      digittotal[3]=rs485string[2]
-      digittotal[4]=rs485string[3]
-      gosub input_address_write
-      serstring[3]=rs485string[0]
-      serstring[4]=rs485string[1]
-      serstring[5]=rs485string[2]
-      serstring[6]=rs485string[3]
-      gosub activate_device         
-      digitcount=1
-      digittotal[0]=controller_in+1
-      gosub input_number_modules_write
-      if mode_com=0 then                    'CLI mode
-        hserout2 ["Input module added",13,10]
-      endif 
-      gosub activate_eeprom
-    endif
-    if rs485string[0]="O" or rs485string[0]="D" or RS485string[0]="R" then      'new output or dimmer module
-      ok=0                                  'ok can't be sent on console
-      digitcount=5
-      digittotal[0]=controller_out
-      Digittotal[1]=rs485string[0]
-      digittotal[2]=rs485string[1]
-      digittotal[3]=rs485string[2]
-      digittotal[4]=rs485string[3]
-      gosub output_address_write
-      serstring[3]=rs485string[0]
-      serstring[4]=rs485string[1]
-      serstring[5]=rs485string[2]
-      serstring[6]=rs485string[3]
-      gosub activate_device         
-      digitcount=1
-      digittotal[0]=controller_out+1
-      gosub output_number_modules_write
-      if mode_com=0 then                    'CLI mode
-        hserout2 ["Output module added",13,10]
-      endif   
-      gosub activate_eeprom
-    endif
-    if rs485string[0]=255 then
-      if mode_com=0 then                    'CLI mode
-        hserout2 ["Nothing to add",13,10]
-      endif
-    endif
-  else
-    if mode_com=0 then                      'CLI mode
-      hserout2 ["Max # of modules reached on the bus, module not added",13,10]
-    endif
-  endif 
-  ok=1                                      'OK can be sent on consele  
 return
 
 input_link_all_read:                        'instruction "input link list"
@@ -5629,7 +6209,7 @@ pump_group_read:
     t_word=digittotal[0]
     x=t_word.byte0
     for j=0 to 31
-      eep_addr.byte1=143                    'page
+      eep_addr.byte1=143+(59*thermostatmode.bit4)                    'page 143 or 201
       eep_addr.byte0=(x*32)+j
       gosub read_eeprom
       a=i2cdata
@@ -5660,7 +6240,7 @@ pump_group_write:
     a=t_word.byte0
     t_word=digittotal[1]
     b=t_word.byte0  
-    eep_addr.byte1=143                      'page
+    eep_addr.byte1=143+(59*thermostatmode.bit4)                      'page 143 or 201
     eep_addr.byte0=(a*32)+b
     t_word2=digittotal[2]
     i2cdata=t_word2.byte0  
@@ -5678,7 +6258,7 @@ pump_output_write:
     a=t_word.byte0
     t_word=digittotal[1]
     b=t_word.byte0  
-    eep_addr.byte1=144                      'page
+    eep_addr.byte1=144+(59*thermostatmode.bit4)                      'page 144 or 203
     eep_addr.byte0=a
     i2cdata=b  
     gosub write_eeprom
@@ -5693,7 +6273,7 @@ pump_output_read:
   if digittotal[0]<8 then                   'pump output read
     t_word=digittotal[0]
     a=t_word.byte0 
-    eep_addr.byte1=144                      'page
+    eep_addr.byte1=144+(59*thermostatmode.bit4)                      'page 144 or 203
     eep_addr.byte0=a  
     gosub read_eeprom
     a=i2cdata                               'output number
@@ -6010,6 +6590,32 @@ display_output_status:
   gosub display_name
 return
 
+Dimmer_follow:
+  if q<240 then                           'Check follow output only when it's a valid output
+    r=q
+    eep_addr.byte1=65                     'page
+    eep_addr.byte0=q  
+    gosub read_eeprom
+    if i2cdata<240 then                   'a "follow" output is defined
+      gosub check_output                  'check if output is on, q must contain output nr 
+      v=z                                 'result of check_output in v
+      q=i2cdata
+      gosub check_output                  'check if output is on, q must contain output nr             
+      if v.bit0=1 and z.bit0=0 then       'Output is on
+        gosub Increase_queue_pointer
+        queue_type[queue_pointer]=161     'Output On
+        queue_action[queue_pointer]=i2cdata
+        dimmer_value[i2cdata]=dimmer_value[r]
+      elseif v.bit0=0 and z.bit0=1 then
+        gosub Increase_queue_pointer
+        queue_type[queue_pointer]=160     'Output Off
+        queue_action[queue_pointer]=i2cdata        
+      endif
+    endif
+    q=r     
+  endif
+return
+
 output_on:
   t_word=digittotal[0]
   if digittotal[0]<240 and digittotal[1]<240 then
@@ -6028,6 +6634,7 @@ output_on:
       out[y]=out[y]|z
       write_yes=1
       write_yes_mod[(t_word.byte0)/8]=1
+      gosub dimmer_follow      
     endif          
     if digitcount=2 then
       t_word2=digittotal[1]
@@ -6043,6 +6650,7 @@ output_on:
       out[y]=out[y]|z
       write_yes=1
       write_yes_mod[(t_word.byte0)/8]=1
+      gosub dimmer_follow      
     endif
     if digitcount=1 then
       x=(t_word.byte0)//8
@@ -6052,6 +6660,7 @@ output_on:
       out[y]=out[y]|z
       write_yes=1
       write_yes_mod[(t_word.byte0)/8]=1
+      gosub dimmer_follow      
     endif
     if mode_com=0 and queue_pointer=0 then
       gosub send_mes_ok
@@ -6081,7 +6690,8 @@ output_off:
     endif
     OdCode=13                               'Output debug code
     OdOutputNr=t_word.byte0
-    gosub Output_debug                      'Display on console when outbug debug is on  
+    gosub Output_debug                      'Display on console when outbug debug is on
+    gosub dimmer_follow      
   else
     error_code=15
     gosub send_error
@@ -6167,9 +6777,18 @@ output_status_on:
   endif  
 return
 
+read_CH:
+  if ThermostatMode.bit4=0 then           'Heating
+    c="H"
+  else                                    'Cooling
+    c="C"
+  endif
+return
+
 thermostat_list:
+  gosub read_CH
   for j=0 to (controllers-1)
-    hserout2 [dec2 j," "]
+    hserout2 [c,": ",dec2 j," "]
     a=j
     length=16
     Spaces=0
@@ -6473,14 +7092,15 @@ temperature_read:
 return
 
 pid_config_list:
-  eep_addr.byte1=141                        'Page
+  gosub read_CH
+  eep_addr.byte1=141+(59*thermostatmode.bit4)                        'Page 141 or 200
   for pid=0 to (controllers-1)
     for x=0 to 3
       eep_addr.byte0=(pid*4)+x
       gosub read_eeprom
       serstring[x]=i2cdata
     next x
-    Hserout2 ["PID parameters ",dec2 pid,": Kp=",dec3 serstring[0]," Ki=",dec3 serstring[1]," Kd=",dec3 serstring[2]," It=",Dec3 serstring[3],13,10]
+    Hserout2 [c,": PID parameters ",dec2 pid,": Kp=",dec3 serstring[0]," Ki=",dec3 serstring[1]," Kd=",dec3 serstring[2]," It=",Dec3 serstring[3],13,10]
   next pid
   gosub send_mes_ok
 return
@@ -6489,7 +7109,7 @@ pid_config_write:
   if digitcount=5 and digittotal[0]<32 then
     t_word=digittotal[0]
     pid=t_word.byte0
-    eep_addr.byte1=141                      'Page
+    eep_addr.byte1=141+(59*thermostatmode.bit4)                      'Page 141 or 200
     for x=0 to 3
       t_word=digittotal[x+1]
       i2cdata=t_word.byte0
@@ -6522,7 +7142,8 @@ thermostat_details_read:
     t_word=digittotal[0]
     j=t_word.byte0
     pid=j
-    hserout2 ["Current Setpoint: "] 
+    gosub read_CH
+    hserout2 [c,": Current Setpoint: "] 
     x=SetPt[j]
     gosub temperature_display 
     gosub display_LF_CR 
@@ -6590,7 +7211,7 @@ programmed_setpoint_read:
 return
 
 programmed_setpoint_read_sub:
-  eep_addr.byte1=142                        'page 142
+  eep_addr.byte1=142+(59*thermostatmode.bit4)                        'page 142 or 201
   eep_addr.byte0=(a*32)+j+32
   gosub read_eeprom  
   x=i2cdata
@@ -6613,7 +7234,7 @@ programmed_setpoint_write:
       y=0  
     endif
     i2cdata=x+y+64 
-    eep_addr.byte1=142                      'Page
+    eep_addr.byte1=142+(59*thermostatmode.bit4)                      'Page 142 or 201
     eep_addr.byte0=(a*32)+b+32              'address
     gosub write_eeprom    
     gosub send_mes_ok
@@ -6654,7 +7275,7 @@ thermostat_link_write:
     x=t_word.byte0
     thermostat[j]=x
     i2cdata=x 
-    eep_addr.byte1=142                      'Page
+    eep_addr.byte1=142+(59*thermostatmode.bit4)                      'Page 142 or 201
     eep_addr.byte0=j                        'address
     gosub write_eeprom 
     if digitcount=3 then
@@ -6662,7 +7283,7 @@ thermostat_link_write:
       x=t_word.byte0
       thermostat2[j]=x
       i2cdata=x 
-      eep_addr.byte1=142                    'Page
+      eep_addr.byte1=142+(59*thermostatmode.bit4)                    'Page 142 or 201
       eep_addr.byte0=j+224                  'address
       gosub write_eeprom   
     endif  
@@ -6681,7 +7302,7 @@ thermostat_sensor_write:
     x=t_word.byte0
     ThermostatSensor[j]=x
     i2cdata=x 
-    eep_addr.byte1=144                      'Page
+    eep_addr.byte1=144+(59*thermostatmode.bit4)                      'Page 144 or 203
     eep_addr.byte0=j+8                      'address
     gosub write_eeprom   
     gosub send_mes_ok
@@ -6789,6 +7410,13 @@ error_list:
       x=j+30
       Gosub Error_display 
     next j
+  endif
+  if controller_out_RS>0 and controller_out_RS<31 then
+    hserout2 ["Large Installation enabled",13,10]
+    for i=1 to controller_out_RS
+      gosub get_ID
+      hserout2 [dec2 i-1," R ",dec3 digit[0],".",dec3 digit[1],".",dec3 digit[2],".",dec3 digit[3]," Roller/Shutter",13,10]
+    next i
   endif  
   gosub send_mes_ok
 return
@@ -6978,7 +7606,7 @@ eeprom_schedule_address:
 return
 
 eeprom_thermostat_address:
-  eep_addr.byte1=187+(a/16)
+  eep_addr.byte1=187+(a/16)+(17*thermostatmode.bit4)      'Start page 187 or 204
   eep_addr.byte0=(a//16)*16                 'address
 return
 
@@ -7368,11 +7996,11 @@ return
 Check_Thermostat_values:
   for i=0 to 223                            'Check all night temperatures, if values are not yet defined, put them on 16 degree
     eep_addr.byte0=i                        'address
-    eep_addr.byte1=198                      'page
+    eep_addr.byte1=198+(14*thermostatmode.bit4)        'page 198 or 212
     gosub read_eeprom                       'read # of input modules
     if i2cdata=255 then                     'temperature is not yet defined
       eep_addr.byte0=i                      'address
-      eep_addr.byte1=198                    'page
+      eep_addr.byte1=198+(14*thermostatmode.bit4)        'page 198 or 212
       i2cdata=96                            'write 16 degree
       gosub write_eeprom
     endif  
@@ -7385,9 +8013,7 @@ return
 
 'Copy data from eeprom into RAM
 
-activate_eeprom:
-  OledInstalled=0
-  gosub reset_error
+Read_Controller_InOut:
   'Read # of input devices
   eep_addr.byte0=1                          'address
   eep_addr.byte1=0                          'page
@@ -7429,7 +8055,84 @@ activate_eeprom:
     error_ID[2]=0
     error_ID[3]=0
   endif
+ 
+ 'Read # of Roller/Shutter devices when Large Installation is enabled
+  eep_addr.byte0=3                          'address
+  eep_addr.byte1=0                          'page
+  gosub read_eeprom                         'read # of output modules
+  if i2cdata<31 then                        'Max of 30 output devices can be used
+    controller_out_RS=i2cdata
+  else
+    i2cdata=0
+    gosub write_eeprom 
+    controller_out_RS=0
+  endif
   
+  'Read ID's, toggling outputs, timer values etc
+  for t=1 to controller_in                  'check eeprom for input devices
+    eep_addr.byte1=t+1
+    eep_addr.byte0=0                        'Read ID0
+    gosub read_eeprom
+    Mod_ID0[t-1]=i2cdata
+    if i2cdata="L" then OledInstalled=1     'Check if an oled display is installed
+    eep_addr.byte0=1                        'Read ID1
+    gosub read_eeprom    
+    Mod_ID1[t-1]=i2cdata
+    eep_addr.byte0=2                        'Read ID2
+    gosub read_eeprom    
+    Mod_ID2[t-1]=i2cdata
+    eep_addr.byte0=3                        'Read ID3
+    gosub read_eeprom   
+    Mod_ID3[t-1]=i2cdata
+    FOR q=0 to 7            
+      eep_addr.byte0=q+4                    'address
+      eep_addr.byte1=t+1                    'page
+      gosub read_eeprom                     'read all toggling outputs
+      sel_output[((t-1)*8)+q]=i2cdata     
+    next q   
+  next t
+  
+  for t=0 to 239
+    eep_addr.byte1=32
+    eep_addr.byte0=t                        'Read invert status 
+    gosub read_eeprom
+    a=t/8
+    b=t//8
+    if i2cdata=255 then                     '1   NO
+      x=%00000001<<b
+      inp_invert[a]=inp_invert[a]|x      
+    else                                    '0   NC
+      x=%00000001<<b
+      x=~x
+      inp_invert[a]=inp_invert[a]&x      
+    endif   
+  next t
+  
+  'check eeprom for output devices
+  for t=1 to controller_out
+    eep_addr.byte1=t+32
+    eep_addr.byte0=0                        'Read ID0
+    gosub read_eeprom
+    Mod_ID0[t+29]=i2cdata
+    eep_addr.byte0=1                        'Read ID1
+    gosub read_eeprom    
+    Mod_ID1[t+29]=i2cdata
+    eep_addr.byte0=2                        'Read ID2
+    gosub read_eeprom    
+    Mod_ID2[t+29]=i2cdata
+    eep_addr.byte0=3                        'Read ID3
+    gosub read_eeprom   
+    Mod_ID3[t+29]=i2cdata 
+  next t  
+  
+return
+
+activate_eeprom:
+  OledInstalled=0
+  gosub reset_error
+
+  gosub read_Controller_InOut
+
   'Read minimum dimmer value
   eep_addr.byte0=5                          'address
   eep_addr.byte1=0                          'page
@@ -7485,7 +8188,7 @@ activate_eeprom:
   eep_addr.byte1=0                          'page
   gosub read_eeprom   
   if i2cdata<>255 then                      'Debug mode on
-    autresponse=1                           '-> RO response in advanced mode
+    autresponse=1                           '-> "RO" response in advanced mode
   else
     autresponse=0                           '-> No automatic response
   endif
@@ -7522,8 +8225,9 @@ activate_eeprom:
     gosub write_thermostatmode
   else
     Thermostatmode=i2cdata
-    ThermostatMode=ThermostatMode & %10001111  'Non used bits are put on 0    
+    ThermostatMode=ThermostatMode & %10011111  'Non used bits are put on 0    
   endif
+  gosub Set_CoolingHeating
     
   'Read Temperature Module installed Byte
   eep_addr.byte0=15                         'address
@@ -7550,6 +8254,7 @@ activate_eeprom:
   gosub read_eeprom 
   temp_threshold=i2cdata 
  
+  'Read the automatic Response byte for automatic message "OL"
   eep_addr.byte0=18                         'address
   eep_addr.byte1=0                          'page
   gosub read_eeprom   
@@ -7643,6 +8348,26 @@ activate_eeprom:
       CatchAllByte=i2cdata
     endif
   endif 
+
+  'Enable/Disable LargeInstallation functionality
+  eep_addr.byte0=27                         'address
+  eep_addr.byte1=0                          'page
+  gosub read_eeprom   
+  if i2cdata=255 then   
+    LargeInstallation=0
+  else
+    LargeInstallation=1
+  endif
+  
+  'Read automatic response bit, if byte28=255-> AutResponseSO=0, if byte28<>255->AutResponse=0
+  eep_addr.byte0=28                         'address
+  eep_addr.byte1=0                          'page
+  gosub read_eeprom   
+  if i2cdata<>255 then                      
+    autresponseSO=1                          '-> "SO" response in advanced mode and Large Installation mode
+  else
+    autresponseSO=0                          '-> No automatic response
+  endif 
   
   'Offset Temperature byte 60-91
   FOR q=0 to 31                             'Read Offset Temperature
@@ -7671,21 +8396,22 @@ activate_eeprom:
   else
     ForceCRC=1                              'CRC will be forced and messages from input modules without CRC will be dropped
   endif  
+ 
+ 
+ 'Read switch type values
+  for t=0 to 239
+    eep_addr.byte1=97                       'page
+    eep_addr.byte0=t                        'Read switch type 
+    gosub read_eeprom
+    if i2cdata=255 then                     'Normal switch (like use in all home automation systems)
+      switch_type[t]=1     
+    else                                    'Toggle switch (like used in a traditional electrical installation without any automation)
+      switch_type[t]=0
+    endif   
+  next t
   
   'Read PID values for PID controller
-  for t=0 to (controllers-1)
-    eep_addr.byte1=142
-    eep_addr.byte0=t        
-    gosub read_eeprom
-    thermostat[t]=i2cdata
-    eep_addr.byte0=t+224        
-    gosub read_eeprom
-    thermostat2[t]=i2cdata     
-    eep_addr.byte1=144
-    eep_addr.byte0=t+8        
-    gosub read_eeprom
-    ThermostatSensor[t]=i2cdata    
-  next t   
+  gosub read_thermostat_par   
 
   'Read linked Pulse counter Input Information
   FOR q=0 to 7            
@@ -7695,85 +8421,74 @@ activate_eeprom:
     PulseInput[q]=i2cdata     
   next q
          
-  'Read ID's, toggling outputs, timer values etc
-  for t=1 to controller_in                  'check eeprom for input devices
-    eep_addr.byte1=t+1
-    eep_addr.byte0=0                        'Read ID0
-    gosub read_eeprom
-    Mod_ID0[t-1]=i2cdata
-    if i2cdata="L" then OledInstalled=1     'Check if an oled display is installed
-    eep_addr.byte0=1                        'Read ID1
-    gosub read_eeprom    
-    Mod_ID1[t-1]=i2cdata
-    eep_addr.byte0=2                        'Read ID2
-    gosub read_eeprom    
-    Mod_ID2[t-1]=i2cdata
-    eep_addr.byte0=3                        'Read ID3
-    gosub read_eeprom   
-    Mod_ID3[t-1]=i2cdata
-    FOR q=0 to 7            
-      eep_addr.byte0=q+4                    'address
-      eep_addr.byte1=t+1                    'page
-      gosub read_eeprom                     'read all toggling outputs
-      sel_output[((t-1)*8)+q]=i2cdata     
-    next q   
-  next t
-  
-  for t=0 to 239
-    eep_addr.byte1=32
-    eep_addr.byte0=t                        'Read invert status 
-    gosub read_eeprom
-    a=t/8
-    b=t//8
-    if i2cdata=255 then                     '1   NO
-      x=%00000001<<b
-      inp_invert[a]=inp_invert[a]|x      
-    else                                    '0   NC
-      x=%00000001<<b
-      x=~x
-      inp_invert[a]=inp_invert[a]&x      
-    endif   
-  next t
-  
-  'check eeprom for output devices
-  for t=1 to controller_out
-    eep_addr.byte1=t+32
-    eep_addr.byte0=0                        'Read ID0
-    gosub read_eeprom
-    Mod_ID0[t+29]=i2cdata
-    eep_addr.byte0=1                        'Read ID1
-    gosub read_eeprom    
-    Mod_ID1[t+29]=i2cdata
-    eep_addr.byte0=2                        'Read ID2
-    gosub read_eeprom    
-    Mod_ID2[t+29]=i2cdata
-    eep_addr.byte0=3                        'Read ID3
-    gosub read_eeprom   
-    Mod_ID3[t+29]=i2cdata 
-  next t
-  PidCalcNow=1                              'Do the PID calculation
-  gosub input_check_led
-  if mode="L" then                          'when the button module receives the live broadcast, it will switch off the leds
-                                            'when the module receive a scanning, it will switch on the corresponding leds
+  PidCalcCheck=1                              'Do the PID calculation
+  'gosub input_check_led
+  if mode="L" then                          'when the button module receives the live broadcast, it will switch off the leds                                           'when the module receive a scanning, it will switch on the corresponding leds
     gosub bus_live
   endif
 return
 
-input_check_led:                            'check input for leds on button module
-  for t=1 to controller_in
-    if Mod_ID0[t-1]="B" then
-      x=0     'All leds off
-      for q=0 to 7
-        y=1
-        if sel_output[((t-1)*8)+q]<242 then
-          y=y<<q
-          x=x|y                             'appropriate led on
-        endif
-      next q
-      led_button[t-1]=x 
-    endif
-  next t  
+read_thermostat_par:
+  for t=0 to (controllers-1)
+    eep_addr.byte1=142+(59*thermostatmode.bit4)
+    eep_addr.byte0=t        
+    gosub read_eeprom
+    thermostat[t]=i2cdata
+    eep_addr.byte0=t+224        
+    gosub read_eeprom
+    thermostat2[t]=i2cdata     
+    eep_addr.byte1=144+(59*thermostatmode.bit4)             'Page 144 or 203
+    eep_addr.byte0=t+8        
+    gosub read_eeprom
+    ThermostatSensor[t]=i2cdata    
+  next t
 return
+
+Thermostat_output_off:
+  ok=0
+  for t=0 to (controllers-1)
+    if thermostat[t]<240 then                               'Switch Off thermostat outputs  
+      digittotal[0]=thermostat[t]
+      digitcount=1
+      gosub output_off    
+    endif
+    if thermostat2[t]<240 then
+      digittotal[0]=thermostat2[t]
+      digitcount=1
+      gosub output_off    
+    endif        
+  next t
+  for t=0 to 7                                              'Switch Off Pump outputs
+    eep_addr.byte1=144+(59*thermostatmode.bit4)             'page 144 or 203
+    eep_addr.byte0=t  
+    gosub read_eeprom
+    if i2cdata<240 then                                     'Pump output
+      digittotal[0]=i2cdata
+      digitcount=1
+      gosub output_off
+      action[4]=161
+      action[5]=i2cdata
+      gosub remove_timer_queue                              'Remove any pump actions still in timer queue
+    endif            
+  next t
+  ok=1
+return
+
+'input_check_led:                            'check input for leds on button module
+'  for t=1 to controller_in
+'    if Mod_ID0[t-1]="B" then
+'      x=0     'All leds off
+'      for q=0 to 7
+'        y=1
+'        if sel_output[((t-1)*8)+q]<242 then
+'          y=y<<q
+'          x=x|y                             'appropriate led on
+'        endif
+'      next q
+'      led_button[t-1]=x 
+'    endif
+'  next t  
+'return
 
 '------------------------------------------------------------------------------
 ' Clock
@@ -7871,6 +8586,7 @@ read_clock:
     ScanTime=0
     gosub read_seconds   
     if seconds<>seconds_old then
+      if PidCalcCheck=1 then PidCalcNow=1
       TimerQueueEn=1
       seconds_old=seconds                   'do this routine only 1 time per second
       if seconds=15 or seconds=45 then
@@ -7889,38 +8605,58 @@ read_clock:
           gosub read_hours
           gosub thermostat_timing12
         elseif minutes=10 or minutes=20 or minutes=30 or minutes=40 or minutes=50 then
+          gosub Set_CoolingHeating
           gosub thermostat_timing12
         endif
         gosub check_schedule_queue
       endif  
       if seconds=3 then
+        PidCalcCheck=1
         PidCalcNow=1
+        gosub ThermostatMode_ON    
       endif
-      if seconds=7 then
+      if seconds=33 then
         PumpCheckNow=1
       endif   
       gosub timer_function                  'Decrease timer values for lights that are swicthed on
-      CheckTimerQueue=1                     'gosub check_timer_queue   
+      CheckTimerQueue=1                     'gosub check_timer_queue       
     else
-      if seconds=0 and minutes=0 and hours=0 then
-        if i2cTimeScan<255 then 
-          i2cTimeScan=i2cTimeScan+1
-        else
-          i2cError=i2cError+1
-          ResetI2c=1
-          i2cTimeScan=0
-        endif
-      else
-        i2cTimeScan=0
-        ResetI2c=0
-      endif
-      if (err<>0) then 
-        error_code = 2                      'Error Time reading
-        ErrorTmp=61
-        gosub send_error
-      endif    
+      gosub i2c_error
     endif
   endif  
+return
+
+i2c_error:
+  if hours=0 then
+    if seconds=0 and minutes=0 then
+      if i2cTimeScan<255 then 
+        i2cTimeScan=i2cTimeScan+1
+      else
+        i2cError=i2cError+1
+        ResetI2c=1
+        i2cTimeScan=0
+      endif
+    else
+      i2cTimeScan=0
+      ResetI2c=0
+    endif
+    if (err<>0) then 
+      error_code = 2                      'Error Time reading
+      ErrorTmp=61
+      gosub send_error
+    endif
+  endif  
+return
+
+ThermostatMode_ON:
+  if ThermostatMode.Bit4=0 then             'Heating is enabled
+    if (Temp_threshold>temperature[outside_sensor]) or temperature[outside_sensor]>240 then  ' outside temperature is lower than thermostat threshold temperature 
+      if ThermostatMode.bit7=0 then         'Thermostat function is off
+        ThermostatMode.bit7=1               'Enable Thermostat function
+        gosub Write_ThermostatMode
+      endif
+    endif
+  endif
 return
 
 Set_TBS_Output:
@@ -7946,7 +8682,7 @@ Thermostat_timing:
     Tt=(hours*6)+(minutes/10)    
     for q=0 to (controllers-1)
       if Thermostat[q]<240 and ThermostatSensor[q]<241 then     'Thermostat is linked to output and Temperature sensor
-        eep_addr.byte1=189+((days-1)/2)
+        eep_addr.byte1=189+((days-1)/2)+(17*thermostatmode.bit4)      'Start page 189 or 206
         for r=0 to 3
           eep_addr.byte0=(128*((days-1)//2))+(q*4)+r
           gosub read_eeprom
@@ -7981,7 +8717,7 @@ Thermostat_timing2:                         'Will set the right setpoint only wh
     Tt=(hours*6)+(minutes/10)    
     for q=0 to (controllers-1)
       if Thermostat[q]<240 and ThermostatSensor[q]<241 then  'Thermostat is linked to output and Temperature sensor
-        eep_addr.byte1=189+((days-1)/2)
+        eep_addr.byte1=189+((days-1)/2)+(17*thermostatmode.bit4)      'Start page 189 or 206
         for r=0 to 3
           eep_addr.byte0=(128*((days-1)//2))+(q*4)+r
           gosub read_eeprom
@@ -8188,6 +8924,60 @@ clean_timer_queue:                          'clean the queue of the non used act
   endif
 return
 
+'hier
+
+Fill_timer_queue:
+  timer_action[t-1]=action[5]                                               
+  timer_type[t-1]=action[4]
+  timer_input[t-1]=action[6]
+  timer_seconds[t-1]=action[3]
+  'delete
+  'hserout2 ["Queue ",dec t-1," ",dec action[4]," ",dec action[5]," ",dec action[6]," ",dec action[3],13,10]
+return  
+
+
+timer_queue_list:
+  for x=1 to timer_queue_pointer
+    hserout2 [dec3 x-1," ",dec3 timer_type[x-1]," ",dec3 timer_action[x-1]," ",dec3 timer_input[x-1]," ",dec3 timer_seconds[x-1],13,10]
+  next x  
+  gosub send_mes_ok
+return
+
+Add_timer_queue2:
+  i_bit=0
+  if timer_queue_pointer>1 then
+    for t=1 to timer_queue_pointer
+      if timer_type[t-1]=255 and timer_action[t-1]=255 then             'Empty entry found
+        gosub fill_timer_queue
+        t=timer_queue_pointer
+        i_bit=1                                                         'Info to queue added, only add once
+      endif
+    next t
+  endif
+  if i_bit=0 then                                                       'No empty spaces found, add this at the end
+    t=timer_queue_pointer+1
+    gosub fill_timer_queue
+    if timer_queue_pointer<(timer_queue-1) then timer_queue_pointer=timer_queue_pointer+1
+  endif
+return
+
+
+add_timer_queue:
+    'add action to the timer queue     
+    action[5]=Queue_action[i]
+    action[4]=Queue_type[i]
+    if DelayedTime>0 and DelayedTime<250 and ActionButtonRelease=0 then   'Action after x seconds
+      action[6]=240
+      action[3]=DelayedTime
+    else                                                                  'Action at button release
+      action[6]=CurrentInput
+      action[3]=250
+    endif
+    'hier
+    gosub remove_timer_queue  
+    Gosub add_timer_queue2   
+return
+
 timer_function:
   for i=1 to controller_out
     for t=0 to 7
@@ -8244,31 +9034,50 @@ Temperature_Offset:
   b=TempOffset[a]
   if b<>255 then
     c=b&%00001111
-    if b.bit7=0 then '+
-      Temperature[a]=Temperature[a]+c
-    else             '-
-      Temperature[a]=Temperature[a]-c
-    endif
+    if Temperature[a]>1 and Temperature[a]<185 then
+      if b.bit7=0 then '+
+        Temperature[a]=Temperature[a]+c
+      else             '-
+        Temperature[a]=Temperature[a]-c
+      endif
+    endif  
   endif
 return
 
 Read_sensor_values:
-  if rs485string[4]="T" then                'Temperature 
-    for t=0 to 7
-      a=(TemperatureCount*8)+t
-      temperature[a] = RS485string[5+t]
+  if rs485string[4]="T" then                'Temperature  
+    for ic=0 to 7
+      a=(TemperatureCount*8)+ic
+      gosub Set_Temperature
       gosub Temperature_Offset
-    next t  
+    next ic     
   elseif rs485string[4]="H" then            'Humidity       
-    for t=0 to 7
-      humidity[(TemperatureCount*8)+t] = RS485string[5+t]
-    next t
+    for ic=0 to 7
+      humidity[(TemperatureCount*8)+ic] = RS485string[5+ic]
+    next ic
   elseif rs485string[4]="A" then            'ADC value      
-    for t=0 to 7
-      ldr[(TemperatureCount*8)+t] = RS485string[5+t]
-    next t                
+    for ic=0 to 7
+      ldr[(TemperatureCount*8)+ic] = RS485string[5+ic]
+    next ic                
   endif
 return
+
+Set_Temperature:
+  if outside_sensor=a then              'No lower correction for the outside sensor
+    if RS485string[5+ic]<189 then
+      temperature[a] = RS485string[5+ic]
+    else
+      temperature[a]=255  
+    endif        
+  else                                  'Limit inside temperature between 5 and 45 degree Celsius
+    if RS485string[5+ic]>74 and RS485string[5+ic]<154 then
+      temperature[a] = RS485string[5+ic]
+    else
+      temperature[a]=255      
+    endif
+  endif
+return
+
 
 Check_response_temp_module:
   if rs485string[0]=Mod_ID0[i-1] and rs485string[1]=Mod_ID1[i-1] and rs485string[2]=Mod_ID2[i-1] and rs485string[3]=Mod_ID3[i-1] then     
