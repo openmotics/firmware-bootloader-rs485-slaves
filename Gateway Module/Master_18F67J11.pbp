@@ -49,7 +49,7 @@ DEFINE OSC 40
 
 version con 3
 firmware con 141
-built con 18
+built con 19
 hardware con 4
 
 '1-> 18F2620 20Mhz + co-processor 18F1220 for Rs232 communication
@@ -454,16 +454,11 @@ OledInstr1=255
 OledActionType=255
 OledActionNumber=255
 FreeVar var byte[32]
-PulseCounter var word[8]
-PulseCounter[0]=0
-PulseCounter[1]=0
-PulseCounter[2]=0
-PulseCounter[3]=0
-PulseCounter[4]=0
-PulseCounter[5]=0
-PulseCounter[6]=0
-PulseCounter[7]=0
-PulseInput var byte[8]
+
+NumberPulseCounters con 24
+PulseCounter var word[NumberPulseCounters]
+PulseInput var byte[NumberPulseCounters]
+
 RecBytesSer1 var byte
 RecBytesSer1=14
 CatchAll var bit
@@ -578,6 +573,9 @@ next i
 for i=0 to (controllers-1)
   Thermostat[i]=255
   Airco[i]=0
+next i
+for i=0 to (NumberPulseCounters-1)
+  PulseCounter[i]=0
 next i
 Sched_queue_counter=0                       'scheduled queue is empty
 level=255
@@ -1776,12 +1774,12 @@ Check_PulseCounter:
     x=rs485string[6]                        'Which input counter information is sent over
     if x<8 then
       y=((i-1)*8)+x
-      for t=0 to 7
+      for t=0 to (NumberPulseCounters-1)
         if PulseInput[t]=y then
           t_word.byte1=rs485string[7]
           t_word.byte0=rs485string[8]
           PulseCounter[t]=t_word
-          t=7
+          t=NumberPulseCounters-1
         endif  
       next t
     endif
@@ -3499,11 +3497,14 @@ send_OL:
 return
 
 send_PL:
+  crc=0
   Hserout2 ["PL",cid]
-  for ic=0 to 7
+  for ic=0 to (NumberPulseCounters-1)
     t_word=pulsecounter[ic]
+    crc=crc+t_word
     hserout2 [t_word.byte1,t_word.byte0]
-  next ic    
+  next ic
+  gosub send_crc    
   gosub display_LF_CR
   cid=0
 return
@@ -6862,7 +6863,7 @@ input_link_read:
 return
 
 pulse_counter_link_read:
-  if digittotal[0]<8 and digitcount=1 then
+  if digittotal[0]<NumberPulseCounters and digitcount=1 then
     t_word=digittotal[0]
     a=t_word.byte0
     i2cdata=PulseInput[a] 
@@ -6874,7 +6875,7 @@ pulse_counter_link_read:
 return
 
 pulse_counter_link_write:
-  if digittotal[0]<8 and digitcount=2 then
+  if digittotal[0]<NumberPulseCounters and digitcount=2 then
     t_word=digittotal[0]
     a=t_word.byte0
     eep_addr.byte1=0                        'page 0
@@ -7481,7 +7482,7 @@ input_enable_list:
 return
 
 pulse_counter_list:
-  for x=0 to 7
+  for x=0 to (NumberPulseCounters-1)
     hserout2 [dec x," ",dec5 PulseCounter[x]," "]
     a=x                                     'Pulse Counter
     length=16                               'Max number of characters 
@@ -7581,8 +7582,8 @@ eeprom_output_address:
 return
 
 eeprom_pulse_address:
-  eep_addr.byte1=195
-  eep_addr.byte0=a*16                       'address
+  eep_addr.byte1=98+(a/16)
+  eep_addr.byte0=(a//16)*16                 'address
 return
 
 eeprom_action_address:
@@ -8414,8 +8415,8 @@ activate_eeprom:
   gosub read_thermostat_par   
 
   'Read linked Pulse counter Input Information
-  FOR q=0 to 7            
-    eep_addr.byte0=q+120                    'address
+  FOR q=0 to (NumberPulseCounters-1)            
+    eep_addr.byte0=q+160                    'address
     eep_addr.byte1=0                        'page
     gosub read_eeprom                       'read all toggling outputs
     PulseInput[q]=i2cdata     
