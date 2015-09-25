@@ -49,7 +49,7 @@ DEFINE OSC 40
 
 version con 3
 firmware con 141
-built con 22
+built con 25
 hardware con 4
 
 '1-> 18F2620 20Mhz + co-processor 18F1220 for Rs232 communication
@@ -213,6 +213,7 @@ i2cTimeScan var byte
 i2cTimeScan=0
 ResetI2c var bit
 ResetI2c=0
+tp var byte
 err var bit
 mode var byte                               'mode="L"-> live mode, mode="I"-> Initialization mode
 mode_com var bit                            'mode_com=1 -> advanced mode, =0 Simple mode (command line)
@@ -1092,14 +1093,22 @@ SetThermostatOutput:
     if DriveOutput>0 then                   'switch on output
       out[y]=out[y]|z
       OdCode=2
-      OdOutputNr=a
-      gosub Output_debug      
+      OdOutputNr=a      
+      gosub Output_debug 
+      tp=q
+      q=a
+      gosub dimmer_follow
+      q=tp           
     else                                    'switch off output
       z=~z
       out[y]=out[y]&z
       OdCode=3
       OdOutputNr=a
-      gosub Output_debug            
+      gosub Output_debug
+      tp=q
+      q=a
+      gosub dimmer_follow
+      q=tp                  
     endif
     write_yes=1
     write_yes_mod[y]=1
@@ -2993,7 +3002,7 @@ Toggle_lights:
       ToggleFollowActive=1
       ToggleFollowData=out[q/8]>>(q//8)
     endif
-    gosub dimmer_follow    
+    gosub dimmer_follow   
   endif
   OdCode=5
   OdOutputNr=q
@@ -6584,11 +6593,21 @@ Dimmer_follow:
     eep_addr.byte1=65                     'page
     eep_addr.byte0=q  
     gosub read_eeprom
+    'delete
+    'if mode_com=0 then
+    '  hserout2 ["q=",dec q," i2cdata=",dec i2cdata,13,10]
+    'endif
+    
     if i2cdata<240 then                   'a "follow" output is defined
       gosub check_output                  'check if output is on, q must contain output nr 
       v=z                                 'result of check_output in v
       q=i2cdata
-      gosub check_output                  'check if output is on, q must contain output nr             
+      gosub check_output                  'check if output is on, q must contain output nr 
+      'delete
+      'if mode_com=0 then
+      '  hserout2 ["v=",dec v," z=",dec z,13,10]
+      'endif
+                
       if v.bit0=1 and z.bit0=0 then       'Output is on
         gosub Increase_queue_pointer
         queue_type[queue_pointer]=161     'Output On
@@ -6622,7 +6641,10 @@ output_on:
       out[y]=out[y]|z
       write_yes=1
       write_yes_mod[(t_word.byte0)/8]=1
-      gosub dimmer_follow      
+      tp=q
+      q=t_word.byte0
+      gosub dimmer_follow
+      q=tp      
     endif          
     if digitcount=2 then
       t_word2=digittotal[1]
@@ -6638,7 +6660,10 @@ output_on:
       out[y]=out[y]|z
       write_yes=1
       write_yes_mod[(t_word.byte0)/8]=1
-      gosub dimmer_follow      
+      tp=q
+      q=t_word.byte0
+      gosub dimmer_follow
+      q=tp      
     endif
     if digitcount=1 then
       x=(t_word.byte0)//8
@@ -6648,7 +6673,10 @@ output_on:
       out[y]=out[y]|z
       write_yes=1
       write_yes_mod[(t_word.byte0)/8]=1
-      gosub dimmer_follow      
+      tp=q
+      q=t_word.byte0
+      gosub dimmer_follow
+      q=tp      
     endif
     if mode_com=0 and queue_pointer=0 then
       gosub send_mes_ok
@@ -6679,7 +6707,10 @@ output_off:
     OdCode=13                               'Output debug code
     OdOutputNr=t_word.byte0
     gosub Output_debug                      'Display on console when outbug debug is on
-    gosub dimmer_follow      
+    tp=q
+    q=t_word.byte0
+    gosub dimmer_follow
+    q=tp      
   else
     error_code=15
     gosub send_error
@@ -8993,7 +9024,11 @@ timer_function:
           write_yes_mod[i-1]=1
           OdCode=15                         'Output debug code
           OdOutputNr=y
-          gosub Output_debug                'Display on console when outbug debug is on       
+          gosub Output_debug                'Display on console when outbug debug is on
+          tp=q
+          q=y
+          gosub dimmer_follow
+          q=tp                 
         endif
       endif
     next t  
