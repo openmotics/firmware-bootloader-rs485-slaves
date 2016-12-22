@@ -1,5 +1,5 @@
 '************************************************************************
-'Copyright (c) 2014 - OpenMotics <info@openmotics.com>
+'Copyright (c) 2016 - OpenMotics <info@openmotics.com>
 
 'This file is part of OpenMotics.
 
@@ -23,27 +23,30 @@
 'Interrupt system of Darrel Taylor is used see http://darreltaylor.com/DT_INTS-18/home.html
 'For more information see wiki.openmotics.com
 
+
 @ CONFIG SOSCSEL=DIG
 
 DEFINE OSC 40
 
 version con 3
 firmware con 0
-built con 1
+built con 4
 
 DEFINE  USE_LOWPRIORITY  1
 INCLUDE "DT_INTS-18.bas"       ; Base Interrupt System
 INCLUDE "ReEnterPBP-18.bas"    ; Include if using PBP interrupts
 INCLUDE "ReEnterPBP-18LP.bas"  ; Include if using Low Pr. PBP INTS
 
-OSCCON.0=0 'external oscillator
-OSCCON.1=0
-OSCTUNE.6=1 'PLL enabled
+'OSCCON.0=0 'external oscillator
+'OSCCON.1=0
+'OSCTUNE.6=1 'PLL enabled
 
 ANCON0=%00000000   'All ports configured as digital ports
 ANCON1=%00000000   'All ports configured as digital ports
 
 CCP2CON=0
+
+'TestMode
 
 RS485_mode    var     PORTD.4        ' Mode for RS485 chip (send or receive)
 LED_red       VAR     PORTE.1   ' Led
@@ -121,8 +124,6 @@ Mod_ID2 var     byte
 Mod_ID3 var     byte
 Mod_NE  var     byte        'N->New module,E->Existing module
 
-'Variables
-
 test_bit var bit
 x  var byte
 y  var byte
@@ -179,10 +180,15 @@ InputState=255
 InputStateOld=255
 InputPulseCounter=0
 InputPulseCounterOld=0
+'InputDirection var bit[8]
+'InputDirectionOld var bit[8]
 TempInputState var bit[8]
+'TempInputStateOld var bit[8]
 InputStateCounter var byte[8]
 InputStateBit var Bit[8]
 for t=0 to 7
+'  InputDirection[t]=1
+'  InputDirectionOld[t]=1
   TempInputState[t]=1
   InputStateBit[t]=1
 next t
@@ -212,6 +218,7 @@ eep_addr_temp var word
 err var byte
 mode var byte
 mode="L"
+CRC var word
 
 ComOK var bit
 ComOK=0
@@ -230,7 +237,6 @@ ReceiveTemp var byte
 broadcast var bit
 counter var byte
 PortOld var byte[3]
-CRC var word
 
 i2cData0 var byte
 i2cData1 var byte
@@ -242,6 +248,7 @@ LedCounter var byte
 LedCounter=0
 LedAction var bit
 LedAction=0
+RndValue var byte
 
 PowerSafe var bit
 PowerSafe=1   'Module in PowerSafe Mode (Leds off)
@@ -262,7 +269,7 @@ input sda
 input scl
 
 
-'Define interrupts
+
 
 ;----[High Priority Interrupts]-----------------------------------------------
 ASM
@@ -311,6 +318,7 @@ RCSTA2.7=1  'Enable UART2
 RCSTA2.4=0  'disable UART2 receiver
 PIE3.5=1    'Enable receive UART2 interrupt
 PIR3.5=0    'Clear RC1IF
+'RCSTA2.4=1  'enable UART1 receiver
 TXSTA2.5=1  'enable UART2 transmit
 'hserout2 ["processor started, Hardware V",dec hardware,13,10]
 
@@ -358,22 +366,25 @@ if x<>0 then
 endif
 write 75,0    'Set Bootloader time on 0 seconds 
 
-high led_logo
-pause 400 
-
 '----------------------------------------------------------------------------
 ' Main routine
-'---------------------------------------------------------------------------- 
+'----------------------------------------------------------------------------
 
-mainloop:    
-  gosub interprete_serial    'check information coming from the RS485 bus
-  gosub read_input2          'Read input state of the 8 inputs
-  gosub check_LedAction      'Set leds correctly
-  gosub Display_AlertLeds    'Check if any leds needs to flash, normal or inverted state
-  gosub check_SerialErrors   'Check if serial errors happened
+
+high led_logo
+pause 400   'Please delete other pause 
+
+mainloop:  
+  
+  gosub interprete_serial
+  gosub read_input2
+  gosub check_LedAction
+  gosub Display_AlertLeds
+  gosub check_SerialErrors
   if mode="I" then           'bus is in Initialization mode
     gosub check_inputs       'during initialization, 2 inputs needs to be checked
   endif
+
 Goto mainloop
 
 '--------------------------------------------------------------------------
@@ -403,7 +414,7 @@ Receive1:                  'RS485 receive routine
       recser1=1            'start receiving ser1
     endif
   endif
-  RCSTA1.4=1               'enable UART1 receiver
+  RCSTA1.4=1  'enable UART1 receiver
 @ INT_RETURN
 
 Receive2:
@@ -418,6 +429,8 @@ Timer0:    'interrupt after 26ms when i2c is active
      i2cmode=0  'stop
      err=1      'error
 @ INT_RETURN
+
+
 
 Timer2:   'interrupt every 1,6ms  
   T2CON.2=0
@@ -442,13 +455,15 @@ Timer2:   'interrupt every 1,6ms
     LedCounter=LedCounter-1
     if LedCounter=0 then LedAction=1
   endif  
-  if outalertcounter>0 then OutAlertCounter=Outalertcounter-1   
+  if outalertcounter>0 then OutAlertCounter=Outalertcounter-1
+  RndValue=RndValue+1   
   T2CON.2=1
 @ INT_RETURN
 
 Timer4:        'interrupt every 6.5 micro seconds
   PIE4.7=0     'Disable timer 4 interrupt
   PIR4.7=0     'Clear timer 4 interrupt flag
+  'call timerint
   PIE4.7=1     'Enable timer 4 interrupt
 return
 
@@ -456,6 +471,7 @@ SSP:
   PIE1.3=0   'disable interrupt
   i2cMode=i2cMode+1
   i2cInt=1
+  'hserout2 ["Int ",dec i2cmode,13,10]
   PIR1.3=0   'clear interrupt flag
   PIE1.3=1   'enable interrupt  
 @ INT_RETURN
@@ -466,6 +482,7 @@ SSP:
 
 Interprete_Serial: 'Interprete data coming from the RS485 bus
   if InterpreteSer1=1 then
+    'T2CON.2=0                'disable timer 2 to reduce interrupt conflicts
     RCSTA1.4=0               'disable receiving serial 1  
     InterpreteSer1=0
     if pointerser1>8 then   
@@ -478,7 +495,7 @@ Interprete_Serial: 'Interprete data coming from the RS485 bus
            endif  
            mode="L"
          elseif stackser1[4]="I" and stackser1[5]="I" then   'Bus in Initialize mode
-           gosub generate_id
+           'gosub generate_id
            if mode="L" then 
              low led_red
            endif
@@ -549,25 +566,11 @@ return
 
 Check_input_module:
   if stackser1[0]=Mod_id0 and stackser1[1]=Mod_id1 and stackser1[2]=Mod_id2 and stackser1[3]=Mod_id3 then
-    'bootloader
-    if stackser1[4]="F" and stackser1[5]="V" then      'Request Firmware Version
-      s1="V"
-      gosub send_F_response
-    elseif stackser1[4]="F" and stackser1[5]="R" then  'Perform Reset of the module
-      write 75,stackser1[6]                            'Write number of seconds that this module must remain in bootloader mode
-      s1="R"
-      gosub send_F_response
-      asm
-        reset
-      endasm  
-    else
-    
-      if stackser1[4]="I" then 
-        indicate=Stackser1[5]
-        if indicate<8 then     'Any flashing of indication leds needed?
-          OutAlert=%00000001<<indicate
-          OutAlertCounter=12308  '20 seconden
-        endif
+    if stackser1[4]="I" then 'Input information
+      indicate=Stackser1[5]
+      if indicate<8 then     'Any flashing of indication leds needed?
+        OutAlert=%00000001<<indicate
+        OutAlertCounter=12308  '20 seconden
       endif  
       if stackser1[6]="F" then  'Filter Value how many times the same input must be detected before seen as input change
         InputFilter=Stackser1[7]
@@ -575,6 +578,7 @@ Check_input_module:
         InputFilter=10
       endif   
       ComOK=1    
+      'gosub read_input
       s1=InputState
       s2="P"     'Pulse counter information
       t_word=PulseCounter[pc]
@@ -588,8 +592,20 @@ Check_input_module:
       gosub rs485_send
       pc=pc+1
       if pc>7 then pc=0   'maximum 8 (0-7) pulsecounters can be sent to the Master
-    endif
-  endif  
+    'bootloader  
+    elseif stackser1[4]="F" and stackser1[5]="V" then      'Request Firmware Version
+      s1="V"
+      gosub send_F_response
+    elseif stackser1[4]="F" and stackser1[5]="R" then  'Perform Reset of the module
+      write 75,stackser1[6]                            'Write number of seconds that this module must remain in bootloader mode
+      s1="R"
+      gosub send_F_response
+      pause 5
+      asm
+        reset
+      endasm  
+    endif          
+  endif
   if mode="L" and ComOK=1 then led_red=led_logo        
 return
 
@@ -599,9 +615,15 @@ send_F_response:
   if s1="V" then  'Firmware version
     CRC=Mod_id0+Mod_id1+Mod_id2+Mod_id3+"F"+"V"+255+hardware+version+firmware+built
     hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","V",255,hardware,version,firmware,built,0,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+    hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","V",255,hardware,version,firmware,built,0,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+    low RS485_mode  'Receive mode
+    'hserout2 ["Firmware V instruction",13,10]
   else            'Reset
     CRC=Mod_id0+Mod_id1+Mod_id2+Mod_id3+"F"+"R"+255
     hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","R",255,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+    hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","R",255,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+    low RS485_mode  'Receive mode
+    'Hserout2 ["Firmware R instruction ",dec stackser1[6],13,10]
   endif
   low RS485_mode  'Receive mode
 return
@@ -638,12 +660,22 @@ Read_Input:
       next z
     endif
     InputPulseCounterOld=InputPulseCounter
+    'OutAlertUpdate=1
   endif
 return
 
 Read_Input2:
   if InputCheck=1 then
     InputCheck=0
+    'InputState.bit7=input8
+    'InputState.bit6=input7
+    'InputState.bit5=input6
+    'InputState.bit4=input5
+    'InputState.bit3=input4
+    'InputState.bit2=input3
+    'InputState.bit1=input2
+    'InputState.bit0=input1
+    
     TempInputState[7]=input8
     TempInputState[6]=input7
     TempInputState[5]=input6
@@ -651,7 +683,8 @@ Read_Input2:
     TempInputState[3]=input4
     TempInputState[2]=input3
     TempInputState[1]=input2
-    TempInputState[0]=input1 
+    TempInputState[0]=input1
+    
     InputState2=0    
     for t=0 to 7
       x=InputState>>t
@@ -664,6 +697,7 @@ Read_Input2:
         InputStateCounter[t]=0
         InputStateBit[t]=TempInputstate[t]
       endif
+      'Terugzetten InputState
       y=InputStateBit[t]<<t
       InputState2=InputState2|y
     next t
@@ -681,11 +715,13 @@ Display_AlertLeds:
     if OutalertUpdate=1 then 'Led needs to be updated
       OutAlertUpdate=0
       if OutAlertOn=0 then 'Normal led condition
+        'x=~Inputstate
         x=Inputstate
         gosub set_leds
         gosub write_pcf8574 
       else                 'Inverted led condition
         y=InputState^OutAlert
+        'x=~y
         x=y
         gosub set_leds
         gosub write_pcf8574
@@ -699,19 +735,28 @@ set_leds:
     x=255              'switch off leds
   endif 
   i2cdata=x
+  'i2cdata.bit0=x.bit7
+  'i2cdata.bit1=x.bit6
+  'i2cdata.bit2=x.bit5
+  'i2cdata.bit3=x.bit4
+  'i2cdata.bit4=x.bit3
+  'i2cdata.bit5=x.bit2
+  'i2cdata.bit6=x.bit1
+  'i2cdata.bit7=x.bit0
 return
 
 
 generate_ID:
 if Mod_NE<>"E" then   'Not yet a unique code
+  'toggle led_green
   Mod_NE="N"
   for q=0 to 2
     random w1                              'generate random ID
-    if w1.byte0<>255 and w1.byte0<>0 then  'Random value if ok
-      tmp[q]=w1.byte0
-    else                                   'Random value is not ok
-      tmp[q]=171+q                         'Random value (My bithday :))
-    endif
+    'if w1.byte0<>255 and w1.byte0<>0 then  'Random value if ok
+      tmp[q]=w1.byte0+RndValue
+    'else                                   'Random value is not ok
+    '  tmp[q]=171+q                         'Random value (My bithday :))
+    'endif
   next q
   Mod_ID1=tmp[0]
   Mod_ID2=tmp[1]
@@ -733,38 +778,43 @@ check_startupreset:
     write 4,255
     for s=0 to 3
       low led_red
+      'high led_green
       pause 100
       high led_red
+      'low led_green
       pause 100 
     next s 
+    'high led_green
   endif    
 return
 
 check_inputs: 'during initialization, inputs needs to be checked
   if Button1=0 then    'initialization button is pressed
     if reset_count=0 then   'Message is sent for the first time
-      reset_count=5
+      gosub generate_id
+      reset_count=3500
       s1=0
       s2=Mod_NE   'E->existing,N->New
       gosub rs485_send
     endif
   else           'initialization button is not pressed
     if reset_count>0 then reset_count=reset_count-1
-    if Mod_NE="E" and inputstate<>255 then  'Module is existing and an input switch is pressed
-      if (reset_count=0) then   'Do not generate this message too often
-        reset_count=35000
-        s1=InputState  'Sent Inputstate
-        s2=Mod_NE      'E->existing,N->New
-        pause 5
-        gosub rs485_send
-      endif
-    endif     
+  '  if Mod_NE="E" and inputstate<>255 then  'Module is existing and an input switch is pressed
+  '    if (reset_count=0) then   'Do not generate this message too often
+  '      reset_count=35000
+  '      s1=InputState  'Sent Inputstate
+  '      s2=Mod_NE      'E->existing,N->New
+  '      pause 5
+  '      gosub rs485_send
+  '    endif
+  '  endif     
   endif
 return
 
 rs485_send:
   if mode="L" then 
     high led_red
+    'low led_green
     LedAction=0
     Ledcounter=20
   endif  
@@ -776,6 +826,7 @@ return
 
 Check_LedAction:
   if LedAction=1 and mode="L" then
+    'high led_green
     high led_red
     LedAction=0
     Ledcounter=0
@@ -791,7 +842,8 @@ activate_device:
     write 2,Mod_ID1
     write 3,Mod_ID2
     write 4,Mod_ID3       
-  endif   
+  endif
+  'low led_green    
 return
 
 
@@ -818,6 +870,7 @@ write_i2c_2:
   gosub i2c_write
 return
 
+
 read_i2c_2:
   i2ccont=%11010001
   i2cClock=1
@@ -838,6 +891,7 @@ write_pcf8574:
   i2ccont=PCF8574i2ccont
   i2cClock=1
   pcf8574=1
+'  eep_addr.byte1=i2caddr
   gosub i2c_write
 return
 
@@ -850,6 +904,7 @@ i2c_read:
   i2cmode=1
   TMR0L=0
   TMR0H=0
+  'T3CON.0=1  'start timer3
   T0CON.7=1  'timer 0 enabled
   gosub i2c_routine_read
 return
@@ -863,6 +918,7 @@ i2c_write:
   i2cmode=1
   TMR0L=0
   TMR0H=0  
+  'T3CON.0=1  'start timer3
   T0CON.7=1  'timer 0 enabled                    
   gosub i2c_routine_write  
 return
