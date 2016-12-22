@@ -1,5 +1,5 @@
 '************************************************************************
-'Copyright (c) 2014 - OpenMotics <info@openmotics.com>
+'Copyright (c) 2016 - OpenMotics <info@openmotics.com>
 
 'This file is part of OpenMotics.
 
@@ -29,16 +29,16 @@ DEFINE OSC 40
 
 version con 3
 firmware con 0
-built con 4
+built con 9
 
 DEFINE  USE_LOWPRIORITY  1
 INCLUDE "DT_INTS-18.bas"       ; Base Interrupt System
 INCLUDE "ReEnterPBP-18.bas"    ; Include if using PBP interrupts
 INCLUDE "ReEnterPBP-18LP.bas"  ; Include if using Low Pr. PBP INTS
 
-OSCCON.0=0 'external oscillator
-OSCCON.1=0
-OSCTUNE.6=1 'PLL enabled
+'OSCCON.0=0 'external oscillator
+'OSCCON.1=0
+'OSCTUNE.6=1 'PLL enabled
 
 ANCON0=%00000000   'All ports configured as digital ports
 ANCON1=%00000000   'All ports configured as digital ports
@@ -191,6 +191,7 @@ Button1Pressed=0
 Button1Timer var word
 Butt1 var bit
 Butt2 var bit
+RndValue var byte
 
 RelayTimer var bit
 RelayTimerOn  var byte[8]
@@ -302,18 +303,18 @@ RCSTA1.4=1  'disable UART1 receiver
 TXSTA1.5=1  'enable UART1 transmit
 
 'To be used for debugging
-'BAUDCON2.5=0 'receive data is not inverted
-'BAUDCON2.3=1 'BRG16=1
-'BAUDCON2.4=0 'idle state for Txd is 1
-'SPBRGH2 = 0  '115200 baud
-'SPBRG2 = 86
-'RCSTA2 = %00010000
-'TXSTA2 = %00000100
-'pause 400
-'RCSTA2.7=1  'Enable UART2
-'RCSTA2.4=0  'disable UART2 receiver
-'RCSTA2.4=1  'disable UART2 receiver
-'TXSTA2.5=1  'enable UART2 transmit
+BAUDCON2.5=0 'receive data is not inverted
+BAUDCON2.3=1 'BRG16=1
+BAUDCON2.4=0 'idle state for Txd is 1
+SPBRGH2 = 0  '115200 baud
+SPBRG2 = 86
+RCSTA2 = %00010000
+TXSTA2 = %00000100
+pause 400
+RCSTA2.7=1  'Enable UART2
+RCSTA2.4=0  'disable UART2 receiver
+RCSTA2.4=1  'disable UART2 receiver
+TXSTA2.5=1  'enable UART2 transmit
 
 gosub check_startupreset  'check if reset 
 
@@ -363,6 +364,8 @@ endif
 write 75,0    'Set Bootloader time on 0 seconds 
 
 high led_logo
+
+hserout2 ["Startup done",13,10]
 
 '----------------------------------------------------------------------------
 ' Main routine
@@ -450,6 +453,7 @@ Timer2:   'interrupt every 6,5ms
   endif 
   if outalertcounter>0 then OutAlertCounter=Outalertcounter-1
   if Button1Pressed=1 and Button1Timer>0 then Button1Timer=Button1Timer-1
+  RndValue=RndValue+1
   RelayTimer=1   
   T2CON.2=1
 @ INT_RETURN
@@ -481,7 +485,7 @@ Interprete_Serial: 'Interprete data coming from the RS485 bus
            mode="L"
          endif
          if stackser1[4]="I" and stackser1[5]="I" then   'Bus in Initialize mode
-           gosub generate_id
+           'gosub generate_id
            if mode="L" then 
              low led_red
            endif
@@ -570,6 +574,7 @@ Check_output_module:
       write 75,stackser1[6]                            'Write number of seconds that this module must remain in bootloader mode
       s1="R"
       gosub send_F_response
+      pause 5
       asm
         reset
       endasm  
@@ -594,9 +599,15 @@ send_F_response:
   if s1="V" then  'Firmware version
     CRC=Mod_id0+Mod_id1+Mod_id2+Mod_id3+"F"+"V"+255+hardware+version+firmware+built
     hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","V",255,hardware,version,firmware,built,0,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+    hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","V",255,hardware,version,firmware,built,0,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+    low RS485_mode  'Receive mode
+    'hserout2 ["Firmware V instruction",13,10]
   else            'Reset
     CRC=Mod_id0+Mod_id1+Mod_id2+Mod_id3+"F"+"R"+255
     hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","R",255,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+    hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","R",255,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+    low RS485_mode  'Receive mode
+    'Hserout2 ["Firmware R instruction ",dec stackser1[6],13,10]
   endif
   low RS485_mode  'Receive mode
 return
@@ -808,11 +819,11 @@ if Mod_NE<>"E" then   'Not yet a unique code
   Mod_NE="N"
   for q=0 to 2
     random w1                              'generate random ID
-    if w1.byte0<>255 and w1.byte0<>0 then  'Random value if ok
-      tmp[q]=w1.byte0
-    else                                   'Random value is not ok
-      tmp[q]=171+q                         'Random value (My bithday :))
-    endif
+    'if w1.byte0<>255 and w1.byte0<>0 then  'Random value if ok
+      tmp[q]=w1.byte0+RndValue
+    'else                                   'Random value is not ok
+    '  tmp[q]=171+q                         'Random value (My bithday :))
+    'endif
   next q
   Mod_ID1=tmp[0]
   Mod_ID2=tmp[1]
@@ -846,6 +857,7 @@ check_inputs: 'during initialization, inputs needs to be checked
   gosub check_Button
   if Butt1=0 then    'initialization button is pressed
     if reset_count=0 then   'Message is sent for the first time
+      gosub Generate_ID
       reset_count=5
       s1=0
       s2=Mod_NE   'E->existing,N->New
