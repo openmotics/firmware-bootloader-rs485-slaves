@@ -1,5 +1,5 @@
 '************************************************************************
-'Copyright (c) 2014 - OpenMotics <info@openmotics.com>
+'Copyright (c) 2016 - OpenMotics <info@openmotics.com>
 
 'This file is part of OpenMotics.
 
@@ -30,16 +30,16 @@ DEFINE OSC 40
 
 version con 3
 firmware con 0
-built con 1
+built con 3
 
 DEFINE  USE_LOWPRIORITY  1
 INCLUDE "DT_INTS-18.bas"       ; Base Interrupt System
 INCLUDE "ReEnterPBP-18.bas"    ; Include if using PBP interrupts
 INCLUDE "ReEnterPBP-18LP.bas"  ; Include if using Low Pr. PBP INTS
 
-OSCCON.0=0 'external oscillator
-OSCCON.1=0
-OSCTUNE.6=1 'PLL enabled
+'OSCCON.0=0 'external oscillator
+'OSCCON.1=0
+'OSCTUNE.6=1 'PLL enabled
 
 'hardware
 pause 400   'Please delete other pause 
