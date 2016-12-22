@@ -1,5 +1,5 @@
 '************************************************************************
-'Copyright (c) 2014 - OpenMotics <info@openmotics.com>
+'Copyright (c) 2016 - OpenMotics <info@openmotics.com>
 
 'This file is part of OpenMotics.
 
@@ -29,23 +29,23 @@ DEFINE OSC 40
 
 version con 3
 firmware con 0
-built con 1
+built con 3
+
+hardware con 3
 
 DEFINE  USE_LOWPRIORITY  1
 INCLUDE "DT_INTS-18.bas"       ; Base Interrupt System
 INCLUDE "ReEnterPBP-18.bas"    ; Include if using PBP interrupts
 INCLUDE "ReEnterPBP-18LP.bas"  ; Include if using Low Pr. PBP INTS
 
-OSCCON.0=0 'external oscillator
-OSCCON.1=0
-OSCTUNE.6=1 'PLL enabled
+'OSCCON.0=0 'external oscillator
+'OSCCON.1=0
+'OSCTUNE.6=1 'PLL enabled
 
 ANCON0=%00000000   'All ports configured as digital ports
 ANCON1=%00000000   'All ports configured as digital ports
 
 CCP2CON=0
-
-hardware con 3
 
 'i2c --------------------------------------------------------------------------
 SSPADD.0=1  '100kHz
@@ -608,12 +608,19 @@ send_F_response:
   if s1="V" then  'Firmware version
     CRC=Mod_id0+Mod_id1+Mod_id2+Mod_id3+"F"+"V"+255+hardware+version+firmware+built
     hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","V",255,hardware,version,firmware,built,0,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+    hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","V",255,hardware,version,firmware,built,0,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+    low RS485_mode  'Receive mode
+    'hserout2 ["Firmware V instruction",13,10]
   else            'Reset
     CRC=Mod_id0+Mod_id1+Mod_id2+Mod_id3+"F"+"R"+255
     hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","R",255,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+    hserout ["AAARC",Mod_id0,Mod_id1,Mod_id2,Mod_id3,"F","R",255,"C",CRC.byte1,CRC.byte0,13,10,13,10]
+    low RS485_mode  'Receive mode
+    'Hserout2 ["Firmware R instruction ",dec stackser1[6],13,10]
   endif
   low RS485_mode  'Receive mode
 return
+
 
 Display_AlertLeds:
   if OutalertUpdate=1 then 'Led needs to be updated
