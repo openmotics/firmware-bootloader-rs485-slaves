@@ -1,0 +1,3556 @@
+'************************************************************************
+'Copyright (c) 2016 - OpenMotics <info@openmotics.com>
+
+'This file is part of OpenMotics.
+
+'OpenMotics is free software: you can redistribute it and/or modify
+'it under the terms of the GNU General Public License as published by
+'the Free Software Foundation, either version 3 of the License, or
+'(at your option) any later version.
+
+'OpenMotics is distributed in the hope that it will be useful,
+'but WITHOUT ANY WARRANTY; without even the implied warranty of
+'MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+'GNU General Public License for more details.
+
+'You should have received a copy of the GNU General Public License
+'along with OpenMotics.  If not, see <http://www.gnu.org/licenses/>.
+'************************************************************************
+
+'Firmware to be used with the OpenMotics CAN Control Module
+
+'Written in Pic Basic Pro 2.6 however it should be compatible with Pic Basic Pro 3.0 but this is not yet tested
+'Interrupt system of Darrel Taylor is used see http://darreltaylor.com/DT_INTS-18/home.html
+'For more information see wiki.openmotics.com
+
+
+@ CONFIG SOSCSEL=DIG
+
+hardware con 1
+version con 1
+firmware con 4
+built con 2
+
+include "PIC18CAN.bas"
+
+DEFINE  USE_LOWPRIORITY  1
+INCLUDE "DT_INTS-18F45K80.bas" ; Base Interrupt System
+INCLUDE "ReEnterPBP-18.bas"    ; Include if using PBP interrupts
+INCLUDE "ReEnterPBP-18LP.bas"  ; Include if using Low Pr. PBP INTS
+
+ANCON0=%00000000   'All ports configured as digital ports
+ANCON1=%00000000   'All ports configured as digital ports
+
+' -------- Final PCB ------------------------------------------------------
+TRISA=%00111111
+TRISB=%11101011
+TRISC=%10111101
+TRISD=%11001111
+TRISE=%11111001
+
+LED_1      VAR  PORTC.1   ' Led
+high led_1
+LED_2      var  PORTC.2
+high led_2
+LED_ST     var  PORTE.1
+high led_ST
+LED_POWER  var  PORTE.2
+low LED_POWER
+'Button1    var  PORTE.2
+Button2    var  PORTB.1
+POWER_OFF  var  PORTD.5
+'LED_SW_2   var  PORTC.3
+'high LED_SW_2
+LED_SW_1   var  PORTB.2                                                        
+high LED_SW_1
+RS485_mode var  PORTD.4        ' Mode for RS485 chip (send or receive)
+low RS485_mode
+
+' --------- Test PCB ------------------------------------------------------
+'TRISA=%00111111
+'TRISB=%11101011
+'TRISC=%10011101
+'TRISD=%11001111
+'TRISE=%11111001
+'LED_1      VAR  PORTC.1   ' Led
+'high led_1
+'LED_2      var  PORTC.2
+'high led_2
+'LED_ST     var  PORTE.1
+'high led_ST
+'LED_POWER  var  PORTE.2
+'low LED_POWER
+''Button1    var  PORTE.2
+'Button2    var  PORTB.1
+'POWER_OFF  var  PORTD.5
+'low POWER_OFF
+''LED_SW_2   var  PORTC.3
+''high LED_SW_2
+'LED_SW_1   var  PORTB.2                                                        
+'high LED_SW_1
+'RS485_mode var  PORTC.5        ' Mode for RS485 chip (send or receive)
+'low RS485_mode 
+
+'--------64Mhz (external xtal 16Mhz PLL to 64Mhz------------------
+' For PBP2.6 (not for 3.0) please modify 18F45K80.inc (in directory /PBP)
+' Modification: CONFIG FOSC = HS1
+'DEFINE OSC 64
+'OSCCON.0=0 'external oscillator
+'OSCCON.1=0
+'OSCTUNE.6=1 'PLL enabled
+'BAUDCON1.5=0 'receive data is not inverted
+'BAUDCON1.3=1 'BRG16=1
+'BAUDCON1.4=0 'idle state for Txd is 1
+'SPBRGH1 = 0  '115200 baud
+'SPBRG1 = 138
+'RCSTA1 = %00010000
+'TXSTA1 = %00000100
+'BAUDCON2.5=0 'receive data is not inverted
+'BAUDCON2.3=1 'BRG16=1
+'BAUDCON2.4=0 'idle state for Txd is 1
+'SPBRGH2 = 0  '115200 baud
+'SPBRG2 = 138
+'RCSTA2 = %00010000
+'TXSTA2 = %00000100
+'T0CON=%00000101               ; T0 = 16-bit, 1:64 Prescaler
+'T2CON=%00011111               ; Interrupt every 1.6ms
+
+'--------40Mhz (external xtal 10Mhz PLL to 40Mhz------------------
+' For PBP2.6 (not for 3.0) please modify 18F45K80.inc (in directory /PBP)
+' Modification: CONFIG FOSC = HS1
+DEFINE OSC 40
+'OSCCON.0=0 'external oscillator
+'OSCCON.1=0
+'OSCTUNE.6=1 'PLL enabled
+BAUDCON1.5=0 'receive data is not inverted
+BAUDCON1.3=1 'BRG16=1
+BAUDCON1.4=0 'idle state for Txd is 1
+SPBRGH1 = 0  '115200 baud
+SPBRG1 = 86
+RCSTA1 = %00010000
+TXSTA1 = %00000100
+BAUDCON2.5=0 'receive data is not inverted
+BAUDCON2.3=1 'BRG16=1
+BAUDCON2.4=0 'idle state for Txd is 1
+SPBRGH2 = 0  '115200 baud
+SPBRG2 = 86
+RCSTA2 = %00010000
+TXSTA2 = %00000100
+T0CON=%00000101               ; T0 = 16-bit, 1:4 Prescaler
+T2CON=%00011111               ; Interrupt every 1.6ms
+
+'--------16Mhz (internal xtal}----------------------------------
+' For PBP2.6 (not for 3.0) please modify 18F45K80.inc (in directory /PBP)
+' Modification: CONFIG FOSC = INTIO2
+'DEFINE OSC 16       'Use the internal Xtal
+'OSCCON.0=0
+'OSCCON.1=1 'Internal Oscillator
+'OSCCON.6=1 'Internal oscillator at 16 Mhz
+'OSCCON.5=1
+'OSCCON.4=1
+'OSCTUNE.6=0 'PLL disabled
+'BAUDCON1.5=0 'receive data is not inverted
+'BAUDCON1.3=1 'BRG16=1
+'BAUDCON1.4=0 'idle state for Txd is 1
+'SPBRGH1 = 0  '115200 baud
+'SPBRG1 = 34
+'RCSTA1 = %00010000
+'TXSTA1 = %00000100
+'BAUDCON2.5=0 'receive data is not inverted
+'BAUDCON2.3=1 'BRG16=1
+'BAUDCON2.4=0 'idle state for Txd is 1
+'SPBRGH2 = 0  '115200 baud
+'SPBRG2 = 34
+'RCSTA2 = %00010000
+'TXSTA2 = %00000100
+'T0CON=%10000001               ; T0 = 16-bit, 1:4 Prescaler
+'T2CON=%00001111               ; Interrupt every 2ms
+
+CCP2CON=0
+
+'i2c --------------------------------------------------------------------------
+SDA        var  PORTC.4
+SCL        var  PORTC.3
+NrBytesWrite var byte
+NrBytesRead  var byte
+DataWriteMax con 32
+DataReadMax  con 32
+DataWrite var Byte[DataWriteMax]
+DataRead  var byte[DataReadMax]
+NewDataEeprom var bit
+NewDataEeprom=0
+NewDataEeprom2 var bit
+NewDataEeprom2=0
+dw var byte
+dr var byte
+ds var byte
+tq var byte
+i2cerror var word
+i2cerror=0
+EnRec var bit
+PCF8574OK var bit
+PCF8574OK=0
+PCF8574_ADDRESS  con %01000000
+PCF8574A_ADDRESS con %01110000
+EEPROM_ADDRESS   con %10100000
+PAC_ADDRESS     con %10011000
+PCF8574i2ccont var byte
+EepromOK    var bit
+PacOK       vAR BIT
+SSPBUFbyte  var byte
+SSPBUFstat  var bit
+phase var bit
+
+SSPADD.0=0  
+SSPADD.1=0
+SSPADD.2=0
+SSPADD.3=1
+SSPADD.4=1
+SSPADD.5=0
+SSPADD.6=0
+SSPCON1=%00101000 'turn on MSSP and set for master mode i2c
+SSPSTAT.7=1       'Slew rate off 
+
+Buffer con 50
+StackSer1 var byte[buffer]
+RecSer1 var bit   '=1 in receiving mode
+RecSerTemp1 var byte
+RecSerTemp2 var byte
+PointerSer1 var byte
+InterpreteSer1 var bit
+RecSer1=0
+PointerSer1=0
+InterpreteSer1=0
+ReceiveTemp var byte
+i var byte
+u var byte
+v var byte
+w var byte
+q var byte
+s var byte
+p var byte
+l var byte
+n var byte
+IdOk var byte
+w1 var word
+tmp var byte[3]
+counter var byte
+TestBit var bit
+exit_now var bit
+s1 var byte
+s2 var byte
+s3 var byte
+s4 var byte
+s5 var byte
+s6 var byte
+s7 var byte
+s8 var byte
+pc var byte
+
+i2ccont var byte     'chip address
+'i2caddr var byte     'address within the chip to select data
+'i2cdata var byte     'data to read or write
+'i2cdataTemp var byte
+
+i2cdataPCF var byte
+i2cdataOldPCF var byte
+'i2cdataPCF_2 var byte
+'LedI2c var bit
+'LedI2c_2 var bit
+LedFct var bit[8]
+LedTmr var byte[8]
+LedFP var bit[8]
+LedTmrAct var bit[8]
+LedBlinkCounter var byte
+LedBlinkCounter=0
+LedBlink var bit
+NonInit var bit
+for q=0 to 7
+  LedFP[q]=0        'Led OFF
+  LedFct[q]=0       '0->Led ON/OFF, 1->Blinking led
+  LedTmr[q]=0       'Time until leds goes off
+  LedTmrAct[q]=0    '=1 -> Timer used, =0 -> Timer not used
+next q
+
+i2cMode var byte
+i2cAck var bit
+i2cInt var bit
+i2cMode=0
+i2cInt=0
+i2cDone var bit[20]
+'i2creadbit var bit
+'i2cClock var bit
+'i2cClock=0
+'pcf8574 var bit
+'eep_addr var word
+'eep_addr_temp var word
+err var bit
+err=0
+
+InputPulseCounter var byte
+InputPulseCounterOld var byte
+InputPulseCounter=0
+InputPulseCounterOld=0
+
+reset_count var word
+reset_count=0
+
+BufferSize con 32
+QueueTxdPointer var byte
+QueueTxdByte0   var byte[BufferSize]
+QueueTxdByte1   var byte[BufferSize]
+QueueTxdByte2   var byte[BufferSize]
+QueueTxdByte3   var byte[BufferSize]
+QueueTxdByte4   var byte[BufferSize]
+QueueTxdByte5   var byte[BufferSize]
+QueueTxdByte6   var byte[BufferSize]
+QueueTxdByte7   var byte[BufferSize]
+QueueTxdSID     var word[BufferSize]
+QueueTxdTime    var byte[BufferSize]
+QueueTxdRetries var byte[BufferSize]
+QueueTxdNrBytes var byte[BufferSize]
+QueueRxdPointer var byte
+QueueRxdByte0   var byte[BufferSize]
+QueueRxdByte1   var byte[BufferSize]
+QueueRxdByte2   var byte[BufferSize]
+QueueRxdByte3   var byte[BufferSize]
+QueueRxdByte4   var byte[BufferSize]
+QueueRxdByte5   var byte[BufferSize]
+QueueRxdByte6   var byte[BufferSize]
+QueueRxdByte7   var byte[BufferSize]
+QueueRxdSID0    var byte[BufferSize]
+QueueRxdSID1    var byte[BufferSize]
+QueueRxdTime    var byte[BufferSize]
+QueueRxdNrBytes var byte[BufferSize]
+QueueRxdError   var bit[BufferSize]
+CRC var byte
+CRC2 var word
+t var byte
+t_word var word
+QueueTxdPointer=0
+QueueRxdPointer=0
+gosub Clear_Buffer
+
+RecCan var bit
+RecCan=0
+
+mod_ID1C var byte         'Own address of the CAN module, mod_ID0C is always "C" so no variable is used
+mod_ID2C var byte
+mod_ID3C var byte
+mod_NEC  var byte
+mod_ID0 var byte[60]      'Module addresses used as CAN controller and all devices connected
+mod_ID1 var byte[60]
+mod_ID2 var byte[60]
+mod_ID3 var byte[60]
+Mod_NE  var byte[60]
+Mod_CAN var BIT[60]       'If this BIT is 0 then it's not a CAN generated module, if 1 then this module is generated by this CAN module
+'Mod_ID_Link var byte[60]
+ID0 var byte
+ID1 var byte
+ID2 var byte
+ID3 var byte
+Ledx var byte  
+NrOfInputModules  var byte
+NrOfSensorModules var byte
+NrOfOutputModules var byte
+NrOfOutputModulesO var byte
+NrOfOutputModulesD var byte
+NrOfOutputModulesR var byte
+LedAction var bit[240]    'Which Output has a led Action linked to it
+LedAction229 var bit[32]  'Which condition (out of 32) has a led Action linked to it (See Eeprom page 229)
+LedEepUpd var bit[16]     'Which of the 9 Led Eeprom pages must be updated
+  
+mod_ID0E var byte[60]     'Full list of Module addresses used by the Master controller
+mod_ID1E var byte[60]
+mod_ID2E var byte[60]
+mod_ID3E var byte[60]
+controller_in var byte
+controller_out var byte
+Out var byte[30]
+OutOld var byte[30]
+
+
+Temperature var byte[32]
+Temp1 var byte
+Temp2 var byte
+Humidity var byte[32]
+ADCvalue var byte[32]
+InputState var byte [30]
+'InputStatePrev var byte [30]
+'InputStateSent var bit[30]
+for t=0 to 29
+  InputState[t]=255
+  'InputStatePrev[t]=255
+  'InputStateSent[t]=1
+  OutOld[t]=255
+  out[t]=0  
+next t
+for t=0 to 7
+  Temperature[t]=255
+  Humidity[t]=255
+  ADCvalue[t]=255
+next t
+
+InputStateTemp var byte
+Queue con 64                                'Queue all the button presses and make sure the master gets them all
+Queue_InputState var byte[queue]            'Inputstate of the switches that have been changes
+Queue_moduleNr var byte[queue]              'The module Nr that has changed switches
+Queue_pointer var byte                      'Number of actions in the queue
+Queue_last var bit
+Queue_pointer=0
+qc var byte
+InputMemory var bit
+InputMemory=1                               'Enable the function Input Memory
+for t=0 to (Queue-1)
+  Queue_InputState[t]=255
+  Queue_moduleNr[t]=255
+next t
+
+I2CQueueMax con 120
+I2CPage     var Byte[I2CQueueMax]
+I2CByte     var Byte[I2CQueueMax]
+I2CNrBytes  var Byte[I2CQueueMax]
+I2CAction   var Byte[I2CQueueMax]
+I2CDevice   var Byte[I2CQueueMax]
+I2Crd       var bit[I2CQueueMax]
+I2CByteWrite1 var Byte[I2CQueueMax]
+I2CByteWrite2 var Byte[I2CQueueMax]
+I2CByteWrite3 var Byte[I2CQueueMax]
+I2CByteWrite4 var Byte[I2CQueueMax]
+I2CDataCheck  var Byte[I2CQueueMax]
+I2CDataCheck2 var Byte[I2CQueueMax]
+I2CPointer  var byte
+I2CCurrent  var byte
+I2CBusy     var bit
+I2CBusy=0
+I2CPointer=0
+I2CCurrent=0
+I2CTimeOut Var byte
+I2CTimeOut=0
+
+for t=0 to (I2CQueueMax-1)
+  I2CAction[t]=255
+next t
+
+'config------------------------------------------------------------------------
+
+input PORTC.7
+output PORTC.6
+'output PORTB.2  'CAN PORTS
+'input PORTB.3
+
+Low POWER_OFF     'CAN Power ON
+LedFP[7]=1        '1->Led ON, 0->Led OFF
+LedFct[7]=0       '0->Led ON/OFF, 1->Blinking led
+LedTmr[7]=0       'Time until leds goes off
+LedTmrAct[7]=0    '=1 -> Timer used, =0 -> Timer not used 
+
+pause 400
+
+
+x var byte
+y var byte
+z var byte
+rs var byte
+ts var byte
+LedAct var byte
+LedInt var byte
+LedBrg var byte
+tempbit var bit
+LedCounter var word
+LedNr var byte
+LedValue var byte
+LedFunction var byte
+LedBrightnessMin var Byte
+LedBrightnessMin=0
+LedBrightnessMax var byte
+LedBrightnessMax=255
+OutOn var byte
+LedCounter=0
+CanCounter var byte
+SensorCounter var word
+SensorCounter=0
+CanCounter=0
+CanOK var word
+CanOK=20000
+mode var byte
+mode="L"
+
+indicate var byte
+IndicateOld var byte
+IndicateOld=255
+IndicateSensorOld var byte
+IndicateSensorOld=255
+IndicateTimer var word
+IndicateTimer=0
+IndicateSet var bit
+IndicateSet=0
+OutAlert var byte
+OutAlertCounter var word
+OutAlertCounter=0
+
+ResetTimer var word
+ResetTimer=0
+ResetPower var byte
+ResetPower=0
+ReceiveTimer var Byte
+ReceiveTimer=0
+
+
+;----[High Priority Interrupts]-----------------------------------------------
+ASM
+INT_LIST  macro    ; IntSource,             Label,  Type, ResetFlag?
+        INT_Handler     RX1_INT,          _Receive1,   PBP,  no
+        INT_Handler     CAN_RXB0_INT,     _RecCAN0,    PBP,  yes
+        INT_Handler     CAN_RXB1_INT,     _RecCAN1,    PBP,  yes                 
+    endm
+    INT_CREATE               ; Creates the High Priority interrupt processor
+
+;----[Low Priority Interrupts]------------------------------------------------
+INT_LIST_L  macro  ; IntSource,        Label,  Type, ResetFlag?
+        INT_Handler     TMR0_INT,    _Timer0,      PBP,  yes       
+        INT_Handler     TMR2_INT,    _Timer2,      PBP,  yes 
+        INT_Handler     SSP_INT,     _SSP,         PBP,  no        
+    endm
+    INT_CREATE_L             ; Creates the Low Priority interrupt processor
+ENDASM
+
+
+@    INT_ENABLE  RX1_INT       ; Enable USART Receive interrupts
+@    INT_ENABLE  TMR0_INT      ; enable Timer 0 interrupts
+@    INT_ENABLE  TMR2_INT      ; enable Timer 2 interrupts
+@    INT_ENABLE  CAN_RXB0_INT  ; enable CAN0 Receive interrupts
+@    INT_ENABLE  CAN_RXB1_INT  ; enable CAN1 Receive interrupts
+@    INT_ENABLE  SSP_INT
+
+
+RCON.7=1    'enable High/Low interrupt
+INTCON.7=0  'Disable all interrupts during configuration
+INTCON.6=0
+TMR0L=0     'reset value
+TMR0H=0
+T0CON.7=0   'timer 0 disabled
+PIE1.1=1    'timer 2 interrupt enabled
+T2CON.2=0   'start timer2 later
+PIE1.3=1    'enable SSP interrupt
+INTCON.6=1
+INTCON.7=1
+RCSTA1.7=1  'Enable UART1
+RCSTA1.4=0  'disable UART1 receiver
+PIE1.5=1    'Enable receive UART1 interrupt
+PIR1.5=0    'Clear RC1IF
+RCSTA1.4=1  'disable UART1 receiver
+TXSTA1.5=1  'enable UART1 transmit
+RCSTA2.7=1  'Enable UART2
+RCSTA2.4=0  'disable UART2 receiver
+'PIE1.5=0    'Disable receive UART1 interrupt
+'PIR1.5=0    'Clear RC1IF
+RCSTA2.4=1  'disable UART2 receiver
+TXSTA2.5=1  'enable UART2 transmit
+
+gosub init_CAN
+PIE5.4=0    'disable Transmit Buffer 2 interrupt
+PIE5.3=0    'disable Transmit Buffer 1 interrupt
+PIE5.2=0    'disable Transmit Buffer 0 interrupt
+IPR5.1=1    'High priority Receive Buffer 1 interrupt
+IPR5.0=1    'High priority Receive Buffer 0 interrupt
+PIE5.0=1    'enable CAN receive buffer 0 interrupt
+PIE5.1=1    'enable CAN receive buffer 1 interrupt
+INTCON.6=1
+INTCON.7=1  'enable all interrupts
+
+RndValue var byte
+
+InputCount var byte
+SensorCount var byte
+SensorCT var byte
+NrOfInputs var byte
+NrOfInputModules=0
+NrOfSensorModules=0
+NrOfOutputModules=0
+NrOfOutputModulesO=0
+NrOfOutputModulesD=0
+NrOfOutputModulesR=0
+NrOfOutputsOn var byte
+NrOfLightsOn var byte
+NrOfOutputsOn=0
+NrOfLightsOn=0
+OutputType var bit[240]   '=0 -> Output, =1 -> Light
+InitOngoing var bit
+InitOngoing=0
+
+CAN_Init var bit
+read 310,mod_ID1C         'address CAN module itself
+read 311,mod_ID2C
+read 312,mod_ID3C
+read 313,mod_NEC
+if Mod_NEC=255 then
+  CAN_Init=0
+else
+  CAN_Init=1
+endif    
+
+gosub Check_NrofInputModules
+
+read 304,NrOfInputs        'Nr of inputs used
+if NrOfInputs=255 then NrOfInputs=0
+if NrOfInputs>239 then NrOfInputs=239
+NrOfSensors var byte
+read 305,NrOfSensors        'Nr of sensors used
+if NrOfSensors=255 then NrOfSensors=0
+if NrOfSensors>31 then NrOfSensors=31
+NrOfOutputsO var byte
+NrOfOutputsD var byte
+NrOfOutputsR var byte
+read 306,NrOfOutputsO        'Nr of outputs used
+read 307,NrOfOutputsD        'Nr of Dimmers used
+read 308,NrOfOutputsR        'Nr of Roller/Shutters used
+if NrOfOutputsO=255 then NrOfOutputsO=0
+if NrOfOutputsD=255 then NrOfOutputsD=0
+if NrOfOutputsR=255 then NrOfOutputsR=0
+'if NrOfOutputs>239 then NrOfOutputs=239
+'delete
+'NrOfOutputsO=10
+'NrOfOutputsD=8
+hserout2 ["NrOfInputs=",dec NrOfInputs," NrOfSensors=",dec NrOfSensors," NrOutputs=",dec NrOfOutputsO," NrDimmers=",dec NrOfOutputsD," NrRollers=",dec NrOfOutputsR,13,10]
+
+'delete
+'hserout2 ["Sent nrofinputs and sensors",13,10]
+
+gosub Sent_NrOfInputs
+gosub Sent_NrOfSensors 
+gosub Check_I2c_Devices
+
+T2CON.2=1     'Start Timer
+
+gosub Check_input_startup
+gosub activate_eeprom
+for t=0 to 239
+  LedAction[t]=0
+next t
+for t=0 to 31
+  LedAction229[t]=0
+next t
+for q=0 to 15
+  LedEepUpd[q]=1
+next q
+gosub activate_eeprom2
+
+ 'bootloader, see http://wiki.openmotics.com/index.php/Bootloader
+read 320,u    'Read Hardware version
+if u<>hardware then 
+  write 320,hardware
+endif
+read 321,u    'Read Major firmware version
+if u<>version then 
+  write 321,version
+endif
+read 322,u    'Read Minor firmware version
+if u<>firmware then 
+  write 322,firmware
+endif
+read 323,u    'Read Minor firmware version
+if u<>built then 
+  write 323,built
+endif 
+read 329,u    'Read Flashmode variable and put on 0 so the bootloader knows the app is running
+if u<>0 then 
+  write 329,0
+endif
+write 330,0    'Set Bootloader time on 0 seconds
+DataWrite[1]=94      'Byte  
+DataWrite[0]=0       'page   
+NrBytesRead=1        'Nr of bytes to read  
+gosub read_eeprom    'read # of input modules
+read 332,u
+if DataRead[0]<>u then  'Check RS232 bootloader debug enable/disable setting
+  write 332,DataRead[0]
+endif          
+
+'----------------------------------------------------------------------------
+' Main routine
+'----------------------------------------------------------------------------
+
+mainloop:  
+  gosub Interprete_Serial
+  gosub check_SerialErrors
+  gosub Check_LedsFP         'Check Leds Front Panel
+  gosub Interprete_Serial  
+  gosub Tx_CAN
+  gosub Interprete_Serial  
+  gosub Request_sensor_info
+  gosub Interprete_Serial  
+  Gosub Rx_CAN
+  gosub Interprete_Serial  
+  gosub check_sending_queue
+  if mode="I" then           'bus is in Initialization mode
+    gosub check_inputs       'during initialization, 2 inputs needs to be checked
+  endif
+  gosub Check_i2c_error
+  gosub Check_I2CQueue
+  gosub Reset_Power  
+Goto mainloop
+
+'--------------------------------------------------------------------------
+' Interrupt routines
+'--------------------------------------------------------------------------
+
+Receive1:                  'RS485 receive routine
+  recsertemp1=recsertemp2  'Keep previous character also
+  recsertemp2=RCREG1
+  if recser1=1 then        'Receiving?
+    StackSer1[PointerSer1]=recsertemp2
+    ReceiveTemp=pointerser1-1
+    if stackser1[ReceiveTemp]=13 and stackser1[pointerser1]=10 then
+      RCSTA1.4=0           'disable receiving serial 1
+      RecSer1=0            'stop receiving ser1 and buffering
+      InterpreteSer1=1
+    endif
+    pointerser1=pointerser1+1
+    if pointerser1>(Buffer-2) then  'Buffer overflow -> stop receiving and interprete
+      RCSTA1.4=0           'disable receiving serial 1
+      RecSer1=0            'stop receiving ser1 and buffering
+      InterpreteSer1=1
+    endif  
+  else                     'Not in receiving mode
+    if recsertemp1="S" and recsertemp2="T" then
+      Pointerser1=0
+      recser1=1            'start receiving ser1
+    endif
+  endif
+  RCSTA1.4=1  'enable UART1 receiver
+@ INT_RETURN
+
+'Timer0:    'interrupt after 26ms when i2c is active
+'     T0CON.7=0  'timer 0 disabled
+'     INTCON.2=0 'interrupt flag cleared
+'     i2cmode=0  'stop
+'     err=1      'error
+'@ INT_RETURN
+
+Timer0:    'interrupt after 26ms when i2c is active
+     T0CON.7=0  'timer 0 disabled
+     INTCON.2=0 'interrupt flag cleared
+     err=1      'error
+     'delete
+     'hserout2 ["Timer 0 i2c ERROR, i2cmode=",dec i2cmode," ",bin8 SSPCON1," ",bin8 SSPCON2," ",bin8 SSPSTAT," ",dec phase,13,10]
+     i2cerror=i2cerror+1
+     i2cmode=0  'stop 
+     I2CBusy=0    
+@ INT_RETURN
+
+Timer2:   'interrupt every 1,6ms  
+  T2CON.2=0
+  PIR1.1=0   'clear timer2 interrupt flag 
+  'code here
+  'hserout2 ["I"]
+  LedCounter=LedCounter+1
+  CanCounter=CanCounter+1
+  SensorCounter=SensorCounter+1
+  RndValue=RndValue+1
+  if I2CTimeOut>0 then I2CTimeOut=I2CTimeOut-1
+  if ResetTimer>0 then ResetTimer=ResetTimer-1
+  T2CON.2=1
+@ INT_RETURN
+
+RecCAN0:
+   CANCON.3=1  'Receive Buffer 0
+   CANCON.2=1
+   CANCON.1=1   
+'   CanNumber=RXB0DLC
+   if RXB0D0>0 then   'ignore own messages
+     QueueRxdByte0[QueueRxdPointer]=RXB0D0
+     QueueRxdByte1[QueueRxdPointer]=RXB0D1
+     QueueRxdByte2[QueueRxdPointer]=RXB0D2
+     QueueRxdByte3[QueueRxdPointer]=RXB0D3
+     QueueRxdByte4[QueueRxdPointer]=RXB0D4
+     QueueRxdByte5[QueueRxdPointer]=RXB0D5
+     QueueRxdByte6[QueueRxdPointer]=RXB0D6
+     QueueRxdByte7[QueueRxdPointer]=RXB0D7
+     QueueRxdNrBytes[QueueRxdPointer]=RXB0DLC
+     QueueRxdSID1[QueueRxdPointer]=RXB0SIDH
+     QueueRxdSID0[QueueRxdPointer]=RXB0SIDL
+     QueueRxdTime[QueueRxdPointer]=0
+     if QueueRxdPointer<BufferSize then
+       QueueRxdPointer=QueueRxdPointer+1
+     endif
+     RecCan=1
+     ReceiveTimer=0
+   endif  
+   RXB0CON.7=0  'buffer is clear again
+   PIR5.0=0     'RXB0IF reset interrupt flag
+   'hserout2 ["CAN 0 interrupt received",13,10]
+@ INT_RETURN
+
+RecCAN1:
+   RXB1CON.7=0  'buffer is clear again
+   PIR5.1=0     'RXB1IF reset interrupt flag
+   'hserout2 ["CAN 1 interrupt received",13,10]   
+@ INT_RETURN
+
+SSP:
+  PIE1.3=0   'disable interrupt
+  i2cMode=i2cMode+1
+  i2cInt=1
+  'hserout2 ["Int I2C ",dec i2cmode,13,10]
+  TMR0L=0
+  TMR0H=0   
+  PIR1.3=0   'clear interrupt flag
+  PIE1.3=1   'enable interrupt  
+@ INT_RETURN
+
+'---------------------------------------------------------------------------
+' Subroutines
+'---------------------------------------------------------------------------
+
+Reset_power:
+  if ReceiveTimer>10 then     'Check if CAN messages receive timeout occured
+    ReceiveTimer=0
+    if NrOfSensorModules>0 or NrOfInputModules>0 then 
+      hserout2 ["No CAN messages received anymore, reset ...",13,10]
+      ResetPower=1
+      ResetTimer=0
+    endif  
+  endif  
+  if ResetPower>0 then
+    if ResetTimer=0 then
+      if ResetPower=1 then
+        hserout2 ["Switch OFF power and wait",13,10]
+        ResetTimer=1600
+        ResetPower=2
+        high POWER_OFF    'CAN Power OFF
+        LedFP[7]=0        '1->Led ON, 0->Led OFF
+        LedFct[7]=0       '0->Led ON/OFF, 1->Blinking led
+        LedTmr[7]=0       'Time until leds goes off
+        LedTmrAct[7]=0    '=1 -> Timer used, =0 -> Timer not used 
+        gosub Clear_Buffer
+      elseif ResetPower=2 then
+        hserout2 ["Switch ON power and wait",13,10]
+        ResetTimer=800
+        ResetPower=3
+        Low POWER_OFF     'CAN Power ON
+        LedFP[7]=1        '1->Led ON, 0->Led OFF
+        LedFct[7]=0       '0->Led ON/OFF, 1->Blinking led
+        LedTmr[7]=0       'Time until leds goes off
+        LedTmrAct[7]=0    '=1 -> Timer used, =0 -> Timer not used         
+      elseif ResetPower=3 then
+        hserout2 ["Init",13,10]
+        ResetTimer=500
+        ResetPower=4
+        gosub init_CAN
+      elseif ResetPower=4 then
+        hserout2 ["Sent Nr in/out",13,10]
+        ResetPower=0
+        gosub Sent_NrOfInputs
+        gosub Sent_NrOfSensors
+      endif
+    endif          
+  endif
+return
+
+Clear_Buffer:
+  QueueRxdPointer=0
+  QueueTxdPointer=0
+  for t=0 to Buffersize-1
+    QueueTxdTime[t]=255
+    QueueRxdTime[t]=255
+    QueueTxdRetries[t]=0
+    QueueRxdByte0[t]=0
+    QueueRxdByte1[t]=0
+    QueueRxdByte2[t]=0
+    QueueRxdByte3[t]=0
+    QueueRxdByte4[t]=0
+    QueueRxdByte5[t]=0
+    QueueRxdByte6[t]=0
+    QueueRxdByte7[t]=0    
+  next t
+return
+
+Check_NrofInputModules:
+  NrOfInputModules=0
+  NrOfSensorModules=0
+  NrOfOutputModules=0
+  NrOfOutputModulesO=0
+  NrOfOutputModulesD=0
+  NrOfOutputModulesR=0
+  for q=0 to 59
+    'Mod_ID_link[q]=255
+    Mod_ID0E[q]=255
+    Mod_ID1E[q]=255
+    Mod_ID2E[q]=255
+    Mod_ID3E[q]=255      
+    w1=q*5
+    read w1,Mod_NE[q]        'Mode_ID in eeprom controller
+    read 1+w1,mod_ID0[q]
+    read 2+w1,Mod_ID1[q]
+    read 3+w1,Mod_ID2[q]
+    read 4+w1,Mod_ID3[q]
+    'if Mod_NE[q]=255 then Mod_NE[q]="N"
+    if Mod_NE[q]="E" then
+      if mod_ID0[q]="I" then   'Input module
+        NrOfInputModules=NrOfInputModules+1
+      endif
+      if mod_ID0[q]="T" then   'Sensor module
+        NrOfSensorModules=NrOfSensorModules+1
+      endif 
+      if mod_ID0[q]="O" then   'Output module
+        NrOfOutputModulesO=NrOfOutputModulesO+1
+        NrOfOutputModules=NrOfOutputModules+1
+      endif
+      if mod_ID0[q]="D" then   'Dimmer module
+        NrOfOutputModulesD=NrOfOutputModulesD+1
+        NrOfOutputModules=NrOfOutputModules+1
+      endif
+      if mod_ID0[q]="R" then   'Relay module
+        NrOfOutputModulesR=NrOfOutputModulesR+1
+        NrOfOutputModules=NrOfOutputModules+1
+      endif
+      'if mod_ID0[q]="C" then   'CAN Control module
+      '  NrOfInputModules=NrOfInputModules+1
+      'endif                           
+    endif
+    'hserout2 ["Read ID's ",dec q," ",Mod_NE[q]," ",dec mod_ID0[q],".",dec mod_ID1[q],".",dec mod_ID2[q],".",dec mod_ID3[q],13,10]
+  next q  
+
+return
+
+Indicate_timer:
+  if IndicateSet=1 then
+    IndicateTimer=IndicateTimer+1
+    if IndicateTimer>5 then
+      IndicateSet=0
+      IndicateTimer=0
+      'hserout2 ["Indicate off ",dec IndicateOld," ",dec IndicateTimer,13,10]
+      'QueueTxdByte0[QueueTxdPointer]=0
+      'QueueTxdByte1[QueueTxdPointer]=3         'Set Led
+      'QueueTxdByte2[QueueTxdPointer]=IndicateOld     'Led Number
+      'QueueTxdByte3[QueueTxdPointer]=0         'Led value
+      'QueueTxdByte4[QueueTxdPointer]=0         'Led function (0: on/off)
+      'QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+      'QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected 
+      'QueueTxdNrBytes[QueueTxdPointer]=6 
+      'gosub Add_Txd_queue
+      'QueueTxdByte0[QueueTxdPointer]=0
+      'QueueTxdByte1[QueueTxdPointer]=4         'Set Sensor indicate
+      'QueueTxdByte2[QueueTxdPointer]=IndicateOld     'Sensor Nr
+      'QueueTxdByte3[QueueTxdPointer]=0         'Led value
+      'QueueTxdByte4[QueueTxdPointer]=0         'Led function (0: on/off)
+      'QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+      'QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected 
+      'QueueTxdNrBytes[QueueTxdPointer]=6 
+      'gosub Add_Txd_queue
+      gosub All_leds_off
+    endif                   
+  endif
+return
+
+All_leds_off:
+  QueueTxdByte0[QueueTxdPointer]=0
+  QueueTxdByte1[QueueTxdPointer]=251       'Broadcast message to switch off all leds of all modules
+  QueueTxdByte2[QueueTxdPointer]=0
+  QueueTxdByte3[QueueTxdPointer]=0
+  QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+  QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected 
+  QueueTxdNrBytes[QueueTxdPointer]=4 
+  gosub Add_Txd_queue
+return
+
+Clean_queue:                          'clean the queue of the non used actions anymore
+  if queue_pointer>0 then 
+    queue_last=1
+    for qc=queue_pointer to 1 step -1
+      if Queue_ModuleNr[qc-1]=255 then
+        if queue_last=1 and queue_pointer>0 then
+          queue_pointer=queue_pointer-1  'Clean up
+          'hserout2 ["Clean Queue Pointer -> ",dec Queue_pointer,13,10]
+        endif
+      else
+        queue_last=0                     'no further clean up for the moment
+      endif
+    next qc   
+  endif
+return
+
+Check_queue:
+  if queue_pointer=0 or InputMemory=0 then
+    InputStateTemp=InputState[InputCount]
+  else
+    for qc=1 to Queue_pointer
+      if Queue_ModuleNr[qc-1]=InputCount then
+        InputStateTemp=Queue_InputState[qc-1]
+        'hserout2 [dec (qc-1),"/",dec Queue_pointer," ",dec2 Queue_ModuleNr[qc-1]," ",dec3 Queue_InputState[qc-1],13,10]
+        Queue_ModuleNr[qc-1]=255              'Remove from the queue
+        qc=Queue_Pointer                      'exit
+      else
+        InputStateTemp=InputState[InputCount]
+      endif
+    next qc 
+  endif  
+return
+
+Set_InputState:
+  'hserout2 ["Button ",dec QueueRxdByte2[t]," = ",dec QueueRxdByte3[t],13,10]
+  'hserout2 ["temp ", dec temperature[0]," ",dec temperature[1],13,10]
+  x=QueueRxdByte2[t]/8
+  y=QueueRxdByte2[t]//8
+  z=%00000001<<y
+  if x<30 then  
+    if QueueRxdByte3[t]=1 then
+      InputState[x]=InputState[x]|z
+    else
+      z=~z
+      InputState[x]=InputState[x]&z
+    endif
+    if Queue_pointer<queue then Queue_pointer=queue_pointer+1
+    Queue_InputState[Queue_Pointer-1]=InputState[x]                                               
+    Queue_ModuleNr[Queue_Pointer-1]=x   
+    'if InputStateSent[x]=1 then
+    '  InputStateSent[x]=0
+    '  InputStatePrev[x]=InputState[x]
+    'endif  
+    'delete
+    'press=1
+    'InputStateMem=x
+    'InputState[1]=%00111111
+    'InputState[2]=%00011111
+    
+    'hserout2 [dec x," ",bin8 InputState[x],13,10]
+  endif
+  
+  'delete , for testing only
+  'if QueueRxdByte3[t]=0 then           
+  '  LedNr=QueueRxdByte2[t]             'LedFunction=0 -> Led Normal ON/OFF
+  '  LedValue=120                        'LedFunction=1 -> Blink Fast
+  '  LedFunction=0                      'LedFunction=2 -> Blink Medium
+  '  gosub Set_led                      'LedFunction=3 -> Blink Slow
+  'else                                 'LedFunction=4 -> Dim Up .. Down .. Up ..
+  '  LedNr=QueueRxdByte2[t]
+  '  LedValue=0
+  '  LedFunction=0
+  '  gosub Set_led  
+  'endif  
+  
+return
+
+Sent_LedMinMax:
+  QueueTxdByte0[QueueTxdPointer]=0
+  QueueTxdByte1[QueueTxdPointer]=250       'Broadcast message to set Min/Max off all leds of all modules
+  QueueTxdByte2[QueueTxdPointer]=0
+  QueueTxdByte3[QueueTxdPointer]=LedBrightnessMin
+  QueueTxdByte4[QueueTxdPointer]=LedBrightnessMax
+  QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+  QueueTxdRetries[QueueTxdPointer]=5       '5 retries
+  QueueTxdNrBytes[QueueTxdPointer]=6 
+  gosub Add_Txd_queue
+return
+
+Sent_NrOfInputs:
+  QueueTxdByte0[QueueTxdPointer]=0
+  QueueTxdByte1[QueueTxdPointer]=253       'Sent NrOfInputs
+  QueueTxdByte2[QueueTxdPointer]=NrOfInputs
+  QueueTxdByte3[QueueTxdPointer]=0
+  QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+  QueueTxdRetries[QueueTxdPointer]=5       '5 retries
+  QueueTxdNrBytes[QueueTxdPointer]=4 
+  gosub Add_Txd_queue
+return
+
+Sent_NrOfSensors:
+  QueueTxdByte0[QueueTxdPointer]=0
+  QueueTxdByte1[QueueTxdPointer]=252       'Sent NrOfSensors
+  QueueTxdByte2[QueueTxdPointer]=NrOfSensors
+  QueueTxdByte3[QueueTxdPointer]=0
+  QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+  QueueTxdRetries[QueueTxdPointer]=5       '5 retries
+  QueueTxdNrBytes[QueueTxdPointer]=4  
+  gosub Add_Txd_queue
+return
+
+Sent_Alive:
+  QueueTxdByte0[QueueTxdPointer]=0
+  QueueTxdByte1[QueueTxdPointer]=254       'Sent Alive message
+  QueueTxdByte2[QueueTxdPointer]=0
+  QueueTxdByte3[QueueTxdPointer]=0
+  QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+  QueueTxdRetries[QueueTxdPointer]=1       '1 retries
+  QueueTxdNrBytes[QueueTxdPointer]=4  
+  gosub Add_Txd_queue
+Return
+
+Check_receive_queue:
+  if QueueRxdPointer>0 then
+    'Led CAN RX
+    LedFP[4]=1        '1->Led ON, 0->Led OFF
+    LedFct[4]=0       '0->Led ON/OFF, 1->Blinking led
+    LedTmr[4]=3       'Time until leds goes off
+    LedTmrAct[4]=1    '=1 -> Timer used, =0 -> Timer not used 
+    'Led CAN Stat
+    CanOk=0    
+    for t=0 to QueueRxdPointer-1
+      'hserout2 ["Handle Receiving queue message ",dec t," ",dec QueueRxdByte0[t]," ",dec QueueRxdByte1[t]," ",dec QueueRxdByte2[t]," ",dec QueueRxdByte3[t]," ",dec QueueRxdByte4[t]," ",dec QueueRxdByte5[t]," ",dec QueueRxdByte6[t]," ",dec QueueRxdByte7[t]," ",dec QueueRxdNrBytes[t],13,10]
+      gosub Check_message
+      QueueRxdTime[t]=255    'Message has been handled     
+    next t
+    gosub Clean_Receiving_Queue
+    'x=QueueRxdPointer
+    'for t=x-1 to 0 step -1
+    '  if QueueRxdTime[t]=255 and QueueRxdError[t]=0 then  'Confirmation received that message is well received so message can be deleted from queue
+    '    'hserout2 ["Clean Receiving Queue=",dec t," ",13,10]
+    '    QueueRxdPointer=QueueRxdPointer-1
+    '  endif
+    'next t
+    'i2cdataPCF_2=255
+    'ledi2c_2=1         
+  endif
+Return
+
+Calculate_Rxd_CRC:
+  if QueueRxdNrBytes[t]=2 then
+    CRC=QueueRxdByte0[t]
+    if QueueRxdByte1[t]=CRC then
+      QueueRxdError[t]=0    'No Error, message OK
+    else
+      QueueRxdError[t]=1    'Error, message NOK
+      'hserout2 ["CRC ERROR2 ",dec t,13,10]
+    endif
+  elseif QueueRxdNrBytes[t]=3 then
+    CRC=QueueRxdByte0[t]+QueueRxdByte1[t]
+    if QueueRxdByte2[t]=CRC then
+      QueueRxdError[t]=0    'No Error, message OK
+    else
+      QueueRxdError[t]=1    'Error, message NOK
+      'hserout2 ["CRC ERROR3 ",dec t,13,10]      
+    endif  
+  elseif QueueRxdNrBytes[t]=4 then
+    CRC=QueueRxdByte0[t]+QueueRxdByte1[t]+QueueRxdByte2[t]
+    if QueueRxdByte3[t]=CRC then
+      QueueRxdError[t]=0    'No Error, message OK
+    else
+      QueueRxdError[t]=1    'Error, message NOK
+      'hserout2 ["CRC ERROR4 ",dec t,13,10]      
+    endif   
+  elseif QueueRxdNrBytes[t]=5 then
+    CRC=QueueRxdByte0[t]+QueueRxdByte1[t]+QueueRxdByte2[t]+QueueRxdByte3[t]
+    if QueueRxdByte4[t]=CRC then
+      QueueRxdError[t]=0    'No Error, message OK
+    else
+      QueueRxdError[t]=1    'Error, message NOK
+      'hserout2 ["CRC ERROR5 ",dec t,13,10]      
+    endif    
+  elseif QueueRxdNrBytes[t]=6 then
+    CRC=QueueRxdByte0[t]+QueueRxdByte1[t]+QueueRxdByte2[t]+QueueRxdByte3[t]+QueueRxdByte4[t]
+    if QueueRxdByte5[t]=CRC then
+      QueueRxdError[t]=0    'No Error, message OK
+    else
+      QueueRxdError[t]=1    'Error, message NOK
+      'hserout2 ["CRC ERROR6 ",dec t,13,10]      
+    endif    
+  elseif QueueRxdNrBytes[t]=7 then
+    CRC=QueueRxdByte0[t]+QueueRxdByte1[t]+QueueRxdByte2[t]+QueueRxdByte3[t]+QueueRxdByte4[t]+QueueRxdByte5[t]
+    if QueueRxdByte6[t]=CRC then
+      QueueRxdError[t]=0    'No Error, message OK
+    else
+      QueueRxdError[t]=1    'Error, message NOK
+      'hserout2 ["CRC ERROR7 ",dec t,13,10]      
+    endif   
+  elseif QueueRxdNrBytes[t]=8 then
+    CRC=QueueRxdByte0[t]+QueueRxdByte1[t]+QueueRxdByte2[t]+QueueRxdByte3[t]+QueueRxdByte4[t]+QueueRxdByte5[t]+QueueRxdByte6[t]
+    if QueueRxdByte7[t]=CRC then
+      QueueRxdError[t]=0    'No Error, message OK
+    else
+      QueueRxdError[t]=1    'Error, message NOK
+      'hserout2 ["CRC ERROR8 ",dec t,13,10]      
+    endif   
+  endif
+return
+
+
+Check_message:     't is already used
+  gosub Calculate_Rxd_CRC
+  if QueueRxdError[t]=0  then  'CRC check ok, message has no error
+    'delete
+    'hserout2 [dec QueueRxdNrBytes[t]," : ",dec QueueRxdByte7[t]," ",dec QueueRxdByte6[t]," ",dec QueueRxdByte5[t]," ",dec QueueRxdByte4[t]," ",dec QueueRxdByte3[t]," ",dec QueueRxdByte2[t]," ",dec QueueRxdByte1[t]," ",dec QueueRxdByte0[t],13,10]
+    if QueueRxdByte1[t]=1 then  'Switch press
+      QueueTxdByte0[QueueTxdPointer]=0
+      QueueTxdByte1[QueueTxdPointer]=1
+      QueueTxdByte2[QueueTxdPointer]=QueueRxdByte2[t]
+      QueueTxdByte3[QueueTxdPointer]=QueueRxdByte3[t]
+      QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+      QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected
+      QueueTxdNrBytes[QueueTxdPointer]=5  
+      gosub Add_Txd_queue
+      gosub Set_InputState 
+    elseif QueueRxdByte1[t]=2 then  'Sensor information
+      if QueueRxdByte2[t]<32 then   'Correct sensor number
+        x=QueueRxdByte2[t]
+        Temp1=QueueRxdByte3[t]
+        Humidity[x]=QueueRxdByte4[t]
+        AdcValue[x]=QueueRxdByte5[t]
+        Temp2=QueueRxdByte6[t]
+        if Temp2<>255 then
+          Temperature[x]=Temp2
+        else
+          Temperature[x]=Temp1
+        endif
+        'hserout2 [dec x," T1=",Dec Temp1," T2=",dec Temp2," P=",dec Temperature[x]," ",dec Humidity[x]," ",dec Brightness[x],13,10]
+        'hserout2 [dec x," T1:",dec temp1," T2:",dec Temp2," T:",dec Temperature[x],13,10]
+      endif
+      gosub Check_queue_message
+    elseif QueueRxdByte1[t]=99  then  'Request Power Reset
+      'hier
+      if QueueRxdByte2[t]="R" then
+        hserout2 ["Request Power Reset",13,10]
+        if ResetPower=0 then
+          ResetPower=1
+        endif  
+      endif        
+    elseif QueueRxdByte0[t]=100 then  'Request received to broadcast information
+      if QueueRxdByte1[t]=252 then    'Sent NrOfSensors
+         'hserout2 ["Request Number of Sensors received",13,10]
+         QueueTxdByte0[QueueTxdPointer]=0
+         QueueTxdByte1[QueueTxdPointer]=252
+         QueueTxdByte2[QueueTxdPointer]=NrOfSensors
+         QueueTxdByte3[QueueTxdPointer]=0
+         QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+         QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected 
+         QueueTxdNrBytes[QueueTxdPointer]=4 
+         gosub Add_Txd_queue       
+      endif
+      if QueueRxdByte1[t]=253 then    'Sent NrOfInputs
+        'hserout2 ["Request Number of Inputs received",13,10]
+        QueueTxdByte0[QueueTxdPointer]=0
+        QueueTxdByte1[QueueTxdPointer]=253
+        QueueTxdByte2[QueueTxdPointer]=NrOfInputs
+        QueueTxdByte3[QueueTxdPointer]=0
+        QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+        QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected 
+        QueueTxdNrBytes[QueueTxdPointer]=4 
+        gosub Add_Txd_queue       
+      endif  
+    elseif QueueRxdByte1[t]=252 then  'NrOfSensors
+      If QueueRxdByte2[t]<32 then 
+        NrOfSensors=QueueRxdByte2[t]
+        write 305,NrOfSensors
+      endif
+      gosub Led_Txd_rs232      
+      hserout2 ["NrOfSensors received=",dec NrOfSensors," ",dec QueueRxdByte2[t],13,10]    
+    elseif QueueRxdByte1[t]=253 then  'NrOfInputs
+      If QueueRxdByte2[t]<240 then 
+        NrOfInputs=QueueRxdByte2[t]
+        write 304,NrOfInputs
+      endif
+      gosub Led_Txd_rs232      
+      hserout2 ["NrOfInputs received=",dec NrOfInputs," ",dec QueueRxdByte2[t],13,10]
+    endif    
+  else
+    gosub Led_Txd_rs232
+    hserout2 ["CRC ERROR:",dec t," ",dec QueueRxdNrBytes[t]," ",dec CRC," ",dec QueueRxdByte7[t],13,10]
+  '  hserout2 [dec QueueRxdByte7[t]," ",dec QueueRxdByte6[t]," ",dec QueueRxdByte5[t]," ",dec QueueRxdByte4[t]," ",dec QueueRxdByte3[t]," ",dec QueueRxdByte2[t]," ",dec QueueRxdByte1[t]," ",dec QueueRxdByte0[t],13,10]
+  endif    
+return
+
+Led_Txd_rs232:
+  LedFP[0]=1        '1->Led ON, 0->Led OFF
+  LedFct[0]=0       '0->Led ON/OFF, 1->Blinking led
+  LedTmr[0]=3       'Time until leds goes off
+  LedTmrAct[0]=1    '=1 -> Timer used, =0 -> Timer not used 
+return
+
+Calculate_Txd_CRC:
+  if QueueTxdNrBytes[QueueTxdPointer]=2 then
+    QueueTxdByte1[QueueTxdPointer]=QueueTxdByte0[QueueTxdPointer]
+  elseif QueueTxdNrBytes[QueueTxdPointer]=3 then
+    QueueTxdByte2[QueueTxdPointer]=QueueTxdByte0[QueueTxdPointer]+QueueTxdByte1[QueueTxdPointer]  
+  elseif QueueTxdNrBytes[QueueTxdPointer]=4 then
+    QueueTxdByte3[QueueTxdPointer]=QueueTxdByte0[QueueTxdPointer]+QueueTxdByte1[QueueTxdPointer]+QueueTxdByte2[QueueTxdPointer]   
+  elseif QueueTxdNrBytes[QueueTxdPointer]=5 then
+    QueueTxdByte4[QueueTxdPointer]=QueueTxdByte0[QueueTxdPointer]+QueueTxdByte1[QueueTxdPointer]+QueueTxdByte2[QueueTxdPointer]+QueueTxdByte3[QueueTxdPointer]   
+  elseif QueueTxdNrBytes[QueueTxdPointer]=6 then
+    QueueTxdByte5[QueueTxdPointer]=QueueTxdByte0[QueueTxdPointer]+QueueTxdByte1[QueueTxdPointer]+QueueTxdByte2[QueueTxdPointer]+QueueTxdByte3[QueueTxdPointer]+QueueTxdByte4[QueueTxdPointer]   
+  elseif QueueTxdNrBytes[QueueTxdPointer]=7 then
+    QueueTxdByte6[QueueTxdPointer]=QueueTxdByte0[QueueTxdPointer]+QueueTxdByte1[QueueTxdPointer]+QueueTxdByte2[QueueTxdPointer]+QueueTxdByte3[QueueTxdPointer]+QueueTxdByte4[QueueTxdPointer]+QueueTxdByte5[QueueTxdPointer]  
+  elseif QueueTxdNrBytes[QueueTxdPointer]=8 then
+    QueueTxdByte7[QueueTxdPointer]=QueueTxdByte0[QueueTxdPointer]+QueueTxdByte1[QueueTxdPointer]+QueueTxdByte2[QueueTxdPointer]+QueueTxdByte3[QueueTxdPointer]+QueueTxdByte4[QueueTxdPointer]+QueueTxdByte5[QueueTxdPointer]+QueueTxdByte6[QueueTxdPointer]  
+  endif
+return
+
+Check_queue_message:
+  if QueueTxdPointer>0 then
+    for u=0 to QueueTxdPointer-1
+      if QueueRxdByte1[t]=QueueTxdByte1[u] and QueueRxdByte2[t]=QueueTxdByte2[u] then  'Correct confirmation received
+        'hserout2 ["correct message received, ",dec QueueRxdByte1[t]," ",dec QueueRxdByte2[t],13,10]
+        QueueTxdTime[u]=255        'message can be indicated as being sent and confirmation that it has been well received by the CAN master
+       endif
+    next u
+    gosub Clean_sending_queue
+  endif  
+return
+
+Add_Txd_queue:
+  gosub Calculate_Txd_CRC
+  if QueueTxdPointer<Buffersize then
+    QueueTxdPointer=QueueTxdPointer+1
+  endif
+return
+
+check_sending_queue:
+  if QueueTxdPointer>0 then
+    'i2cdataPCF=254
+    'ledi2c=1
+    if TXB0CON.3=0 then
+      for t=0 to QueueTxdPointer-1
+        if QueueTxdTime[t]=0 then    'Execute queue action
+          'hserout2 ["Execute Sent Queue, QueueTxdPointer=",dec QueueTxdPointer," ",dec t," ",dec QueueTxdByte0[t]," ",dec QueueTxdByte1[t]," ",dec QueueTxdByte2[t]," ",dec QueueTxdByte3[t],13,10]
+          LedFP[3]=1        '1->Led ON, 0->Led OFF
+          LedFct[3]=0       '0->Led ON/OFF, 1->Blinking led
+          LedTmr[3]=3       'Time until leds goes off
+          LedTmrAct[3]=1    '=1 -> Timer used, =0 -> Timer not used 
+          
+          QueueTxdTime[t]=10
+          COMSTAT.0=0   'Clear errors
+          COMSTAT.1=0
+          COMSTAT.2=0
+          toggle led_2
+          counter=counter+1
+          'hier
+          TXB0SIDH=%00000000
+          TXB0SIDL=%11000000 'standard mode (SID 11 bits)
+          TXB0DLC=QueueTxdNrBytes[t]          'sent x bytes
+          TXB0D0=QueueTxdByte0[t]
+          TXB0D1=QueueTxdByte1[t]
+          TXB0D2=QueueTxdByte2[t]
+          TXB0D3=QueueTxdByte3[t]
+          TXB0D4=QueueTxdByte4[t]
+          TXB0D5=QueueTxdByte5[t]
+          TXB0D6=QueueTxdByte6[t]
+          TXB0D7=QueueTxdByte7[t]          
+          TXB0CON.3=1    'Request sending message
+          if QueueTxdRetries[t]=0 then 
+            QueueTxdTime[t]=255   'message can be removed from the queue
+          else
+            QueueTxdTime[t]=10    'Wait 10 ticks for response to come in, otherwise retry again
+          endif  
+          t=QueueTxdPointer-1  'exit        
+        endif
+      next t
+      gosub clean_sending_queue
+    endif
+    'i2cdataPCF_2=255
+    'ledi2c_2=1   
+  endif     
+return
+
+Clean_receiving_Queue:
+  if QueueRxdPointer>0 then
+    TestBit=0
+    for t=0 to QueueRxdPointer-1
+      if QueueRxdTime[t]<>255 then  'Messages that must remain in the sending queue?
+        TestBit=1
+      endif
+    next t
+    If Testbit=0 then
+      QueueRxdPointer=0
+      'hserout2 ["Sending queue is empty again",13,10]
+    endif
+  endif 
+return
+
+Clean_sending_queue:
+  if QueueTxdPointer>0 then
+    TestBit=0
+    for v=0 to QueueTxdPointer-1
+      if QueueTxdTime[v]<>255 then  'Messages that must remain in the sending queue?
+        TestBit=1
+      endif
+    next v
+    If Testbit=0 then
+      QueueTxdPointer=0
+      'hserout2 ["Sending queue is empty again",13,10]
+    endif
+  endif  
+return
+
+
+Time_check_queue:   'Lower the counter for messages that haven't got receipt confirmation, when QueueTime=0 ->  Resent queue message
+  if QueueTxdPointer>0 then
+    for t=0 to QueueTxdPointer-1
+      If QueueTxdTime[t]<255 and QueueTxdTime[t]>0 then
+        QueueTxdTime[t]=QueueTxdTime[t]-1
+        'hserout2 ["Queue has been lowered, ",dec t," ",dec QueueTxdTime[t],13,10]
+        if QueueTxdTime[t]=0 then
+          If QueueTxdRetries[t]>0 then
+            QueueTxdRetries[t]=QueueTxdRetries[t]-1
+          else
+            QueueTxdTime[t]=255  'Remove from queue            
+          endif
+        endif        
+      endif
+    next t
+  endif  
+return
+
+
+Tx_CAN:
+  if CanCounter>40 then
+    CanCounter=0
+    'hserout2 ["Checking queue ...",13,10]
+    'gosub check_sending_queue
+    gosub Time_check_queue
+  endif
+return
+
+Request_sensor_info:
+  if SensorCounter>10000 then
+    gosub Indicate_Timer
+    SensorCounter=0
+    ReceiveTimer=ReceiveTimer+1
+    gosub Sent_Alive
+    if NrOfSensors>0 then
+      for t=0 to NrOfSensors-1
+        'hserout2 ["sent sensor info request ",dec t,13,10]
+        QueueTxdByte0[QueueTxdPointer]=0
+        QueueTxdByte1[QueueTxdPointer]=2
+        QueueTxdByte2[QueueTxdPointer]=t
+        QueueTxdByte3[QueueTxdPointer]=0
+        QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+        QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected 
+        QueueTxdNrBytes[QueueTxdPointer]=4
+        gosub Add_Txd_queue
+      next t  
+    endif      
+  endif
+return
+
+Rx_CAN:
+'  if RecCan=1 and COMSTAT.0=0 then  'Buffer 0 full and Bus error free?
+  if RecCan=1 then  'Buffer 0?
+    RecCan=0
+    toggle led_1
+    gosub check_Receive_queue
+    'delete
+    'Hserout2 ["CAN message Buffer 0 received ",dec QueueRxdPointer-1," ",dec QueueRxdByte0[QueueRxdPointer-1]," ",dec QueueRxdByte1[QueueRxdPointer-1]," ",dec QueueRxdByte2[QueueRxdPointer-1]," ",dec QueueRxdByte3[QueueRxdPointer-1],13,10]
+    'gosub Check_queue_message
+    'delete
+    'PIR5.0=0     'RXB0IF reset interrupt flag    
+  endif
+  if RXB1CON.7=1 then
+    'delete
+    'Hserout2 ["CAN message Buffer 1 received",13,10]
+    toggle led_1
+    RXB1CON.7=0 'buffer is clear again
+    'delete
+    'PIR5.1=0     'RXB1IF reset interrupt flag     
+  endif  
+Return
+
+init_CAN:
+  'CAN BUS----------------------
+  ' Baudrate=Fosc/(2 x BRP x SEG)=125000 kbps
+  CANCON.7=1      'Request Config mode
+  do until (CANSTAT.7=1 and CANSTAT.6=0 and CANSTAT.5=0) 'Wait until config mode is active
+  loop
+  'hserout2 ["Config mode enabled",13,10]
+  'BRGCON1=%00001111 '125kbps for 64Mhz
+  BRGCON1=%00001001 '125kbps for 40Mhz
+  'BRGCON1=%00000011 '125kbps for 16Mhz    
+  BRGCON2=%10011000 
+  BRGCON3=%00000011  
+  CIOCON.5=1
+  CIOCON.4=0  
+  ECANCON=%00000000  'Mode 0
+  RXB0CON=%01100100  'Receive Buffer 0 is linked to acceptance filter 0
+  RXB1CON=%01100010  'Receive Buffer 1 is linked to acceptance filter 2
+  RXM0SIDL=%00000000 'Mask 0
+  RXM0SIDH=%00000000
+  RXM1SIDL=%00000000 'Mask 1
+  RXM1SIDH=%00000000    
+  RXF0SIDL=%00000000 'Filter 0, not used for the moment since Mask has been set to 0
+  RXF0SIDH=%00000000
+  RXF2SIDL=%00000000 'Filter 2, not used for the moment since Mask has been set to 0
+  RXF2SIDH=%00000000    
+  'TXB0SIDH=$10
+  'TXB0SIDL=$10
+  CANCON.7=0        'Normal Mode
+  CANCON.6=0
+  CANCON.5=0 
+  do until (CANSTAT.7=0 and CANSTAT.6=0 and CANSTAT.5=0)  'Wait until normal mode is active
+  loop
+  'hserout2 ["Normal mode enabled",13,10]     
+Return
+
+Interprete_Serial: 'Interprete data coming from the RS485 bus
+  if InterpreteSer1=1 then
+    RCSTA1.4=0               'disable receiving serial 1  
+    InterpreteSer1=0
+    if pointerser1>6 then 
+      'hserout2 ["Check ",stackser1[0],".",dec stackser1[1],".",dec stackser1[2],".",dec stackser1[3],13,10]  
+      if stackser1[0]="I" then  'Input module addressed
+        gosub Check_Input_Module 
+      elseif StackSer1[0]="T" then
+        gosub Check_Temperature_Module
+      elseif stackser1[0]="O" or stackser1[0]="D" or stackser1[0]="R"  then  'output or dimmer module addressed
+        gosub Check_Output_Module 
+      elseif stackser1[0]="o" or stackser1[0]="d" or stackser1[0]="r"  then  'output or dimmer module addressed
+        gosub Check_Output_Module
+      elseif stackser1[0]="C" and stackser1[1]=Mod_ID1C and stackser1[2]=Mod_ID2C and stackser1[3]=Mod_ID3C then 'Own CAN module addressed
+        'delete
+        'hserout2 ["Own CAN module",13,10]
+        gosub Check_CAN_Module                  
+      elseif stackser1[1]=0 and stackser1[2]=0 and stackser1[3]=0 then    'Broadcast message
+        if stackser1[0]=0 then       'General broadcast message for all modules
+          if stackser1[4]="L" and stackser1[5]="L" then   'Bus in Live mode
+            if mode="I" then 
+              high LED_ST
+              gosub Led_Txd_rs232
+              hserout2 ["Live Mode",13,10]
+            endif  
+            mode="L"
+          endif
+          if stackser1[4]="I" and stackser1[5]="I" then   'Bus in Initialize mode
+            if mode="L" then 
+              low LED_ST
+              gosub Led_Txd_rs232
+              hserout2 ["INIT Mode",13,10]
+            endif
+            mode="I"
+            'gosub generate_id
+          endif
+        else                        'Specific broadcast message
+          if stackser1[0]="C" then  'CAN modules only
+              if stackser1[4]="L" and stackser1[5]="L" then   'Lowest possible value for the CAN Leds
+                if stackser1[6]>127 then  'Minimum Brightness
+                  LedBrightnessMin=0
+                else
+                  LedBrightnessMin=stackser1[6]
+                endif 
+                gosub Led_Txd_rs232       
+                hserout2 ["Brightness (BA Low) Min=",dec LedBrightnessMin," Max=",dec LedBrightnessMax,13,10]
+                Gosub Sent_LedMinMax
+              endif
+              if stackser1[4]="L" and stackser1[5]="H" then   'Highest possible value for the CAN Leds
+                LedBrightnessMax=stackser1[6]
+                gosub Led_Txd_rs232
+                hserout2 ["Brightness (BA High) Min=",dec LedBrightnessMin," Max=",dec LedBrightnessMax,13,10]
+                Gosub Sent_LedMinMax          
+              endif
+              if stackser1[4]="L" and stackser1[5]="O" then   'All Led On/Off
+                if stackser1[6]=0 then     'All leds off
+                  gosub All_leds_off
+                endif        
+              endif            
+              if stackser1[4]="L" and stackser1[5]>=0 and stackser1[5]<6 then  'set led
+                rs=0
+                DataRead[0]=stackser1[6]
+                'delete
+                'hserout2 ["BA Set Led "]
+                if stackser1[5]=0 then       'Led OFF
+                  'delete
+                  'hserout2 ["OFF ",dec DataRead[0],13,10]
+                  DataRead[1]=128            'Switch OFF
+                  gosub set_led_off                
+                elseif stackser1[5]=1 then  'Led ON
+                  'delete
+                  'hserout2 ["ON ",dec DataRead[0],13,10]
+                  DataRead[1]=15
+                  gosub set_led_on                            
+                else                        'Led blinking
+                  DataRead[1]=(stackser1[5]*16)-1  'Led function
+                  gosub set_led_on                                    
+                endif   
+            endif
+          endif                            
+        endif         
+      elseif mode="I" and stackser1[0]="A" and stackser1[1]="D" then   'activate device
+         gosub activate_device
+      endif
+    endif
+    pointerser1=0
+    RCSTA1.4=1            'enable receiving serial 1
+  endif
+return
+
+Led_Action:
+  for rs=0 to 3
+    if DataRead[rs*2]<240 then    'valid output is programmed
+      'hserout2 ["Ledaction: ",dec RS," ",dec DataRead[rs*2]," ",dec dataread[(rs*2)+1],13,10]
+      LedAct=dataread[(rs*2)+1]
+      if LedAct.bit7=0 then  'When output is on, led goes on
+        if OutOn.bit0=1 then 'Output is on
+          gosub Set_Led_on
+        else                 'Output is off
+          Gosub Set_Led_off
+        Endif    
+      else                   'When output is on, led goes off
+        if OutOn.bit0=0 then 'output is off
+          gosub Set_Led_on
+        else                 'output is on
+          Gosub Set_Led_off
+        Endif      
+      endif
+    endif
+  next rs
+return
+
+'Set_led_on2:   'variable Ledx
+'  ID0=mod_ID0E[ledx/8]
+'  ID1=mod_ID1E[ledx/8]
+'  ID2=mod_ID2E[ledx/8]
+'  ID3=mod_ID3E[ledx/8]
+'  hserout2 ["Set Led On:",13,10]
+'  hserout2 [dec3 ID0,".",dec3 ID1,".",dec3 ID2,".",dec3 ID3,13,10]
+'  'hserout2 [dec3 ID0,".",dec3 ID1,".",dec3 ID2,".",dec3 ID3,13,10]
+'  for ts=1 to (NrOfSensorModules+NrOfInputModules)
+'    if ID0=Mod_id0[ts-1] and ID1=Mod_id1[ts-1] and ID2=Mod_id2[ts-1] and ID3=Mod_id3[ts-1] then
+'      hserout2 ["ts=",dec ts," ",dec ((ts-1)*8)+(ledx//8)," ",dec Dataread[1],13,10]
+'      
+'      'x=Mod_Id_Link[ts-1]-(ts-1)
+'      LedInt=((ts-1)*8)+(ledx//8)
+'      'delete
+'      hserout2 ["Led ON Nr:",dec LedInt," ",dec DataRead[rs*2],13,10]
+'      y=DataRead[(rs*2)+1]
+'      z=y&%00001111
+'      z=z*16
+ '     if z=0 then z=4
+ '     LedValue=z
+'      z=y>>4
+'      'hserout2 ["z=",bin8 z," ",dec y,13,10]
+'      z.bit3=0
+'      'hserout2 ["Fc=",bin8 z," ",dec y,13,10]      
+'      LedFunction=z      
+'      LedNr=LedInt
+'      gosub set_led      
+'      
+'      'QueueTxdByte0[QueueTxdPointer]=0
+'      'QueueTxdByte1[QueueTxdPointer]=3         'Set Led
+'      'QueueTxdByte2[QueueTxdPointer]=((ts-1)*8)+(ledx//8)     'Led Number
+'      'QueueTxdByte3[QueueTxdPointer]=254       'Led value
+'      'QueueTxdByte4[QueueTxdPointer]=DataRead[1]         'Led function (4: dim up ...down...up...)
+'      'QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+'      'QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected 
+'      'QueueTxdNrBytes[QueueTxdPointer]=6 
+'      'gosub Add_Txd_queue
+'      ts=NrOfSensorModules+NrOfInputModules
+'    endif
+'  next ts    
+'return
+
+Set_Led_Off:
+  ledx=DataRead[rs*2]
+  ID0=mod_ID0E[ledx/8]
+  ID1=mod_ID1E[ledx/8]
+  ID2=mod_ID2E[ledx/8]
+  ID3=mod_ID3E[ledx/8]
+  InputCount=0
+  'hserout2 ["Set Led Off:",13,10]
+  'hserout2 [dec3 ID0,".",dec3 ID1,".",dec3 ID2,".",dec3 ID3,13,10]  
+  for ts=1 to (NrOfSensorModules+NrOfInputModules)
+    if ID0=Mod_id0[ts-1] and ID1=Mod_id1[ts-1] and ID2=Mod_id2[ts-1] and ID3=Mod_id3[ts-1] then
+      'x=Mod_Id_Link[ts-1]-(ts-1)
+      'LedInt=((ts-1)*8)+(ledx//8)
+      LedInt=(InputCount*8)+(ledx//8)
+      'delete
+      'hserout2 ["Led OFF Nr:",dec LedInt," ",dec DataRead[rs*2],13,10]
+      LedNr=LedInt
+      LedValue=0
+      LedFunction=0
+      'hserout2 ["int Led Nr:",dec LedInt," ",dec DataRead[rs*2]," ",dec Mod_Id_Link[ts-1]," ",dec i,13,10]      
+      gosub set_led
+      ts=NrOfSensorModules+NrOfInputModules              'exit
+    endif
+    if Mod_id0[ts-1]="I" then InputCount=InputCount+1
+  next ts  
+return
+
+Set_led_on:
+  ledx=DataRead[rs*2]
+  ID0=mod_ID0E[ledx/8]
+  ID1=mod_ID1E[ledx/8]
+  ID2=mod_ID2E[ledx/8]
+  ID3=mod_ID3E[ledx/8]
+  InputCount=0
+  'hserout2 ["Set Led On:",13,10]
+  'hserout2 [dec3 ID0,".",dec3 ID1,".",dec3 ID2,".",dec3 ID3,13,10]  
+  for ts=1 to (NrOfSensorModules+NrOfInputModules)
+    if ID0=Mod_id0[ts-1] and ID1=Mod_id1[ts-1] and ID2=Mod_id2[ts-1] and ID3=Mod_id3[ts-1] then
+      'x=Mod_Id_Link[ts-1]-(ts-1)
+      'LedInt=((ts-1)*8)+(ledx//8)
+      LedInt=(InputCount*8)+(ledx//8)
+      'delete
+      'hserout2 ["Led ON Nr:",dec LedInt," ",dec DataRead[rs*2],13,10]
+      y=DataRead[(rs*2)+1]
+      z=y&%00001111
+      z=z*16
+      if z=0 then z=4
+      LedValue=z
+      z=y>>4
+      'hserout2 ["z=",bin8 z," ",dec y,13,10]
+      z.bit3=0
+      'hserout2 ["Fc=",bin8 z," ",dec y,13,10]      
+      LedFunction=z      
+      LedNr=LedInt
+      'hserout2 ["int Led Nr:",dec LedInt," ",dec DataRead[rs*2]," ",dec Mod_Id_Link[ts-1]," ts=",dec ts," rs=",dec rs,13,10]      
+      gosub set_led
+      ts=NrOfSensorModules+NrOfInputModules              'exit
+    endif
+    if Mod_id0[ts-1]="I" then InputCount=InputCount+1
+  next ts
+return
+
+'Set_led_on:
+'  'delete
+'  'hserout2 ["Led ON, Led Nr:",dec DataRead[rs*2]," Function:",bin8 LedAct,13,10]
+'  for ts=1 to Controller_in
+'    if Mod_Id_Link[ts-1]=((DataRead[rs*2])/8) then   'It's a CAN button that has the correct LED
+'      x=Mod_Id_Link[ts-1]-(ts-1)
+'      LedInt=(DataRead[rs*2])-(x*8)
+'      'delete
+'      hserout2 ["Led ON Nr:",dec LedInt," ",dec DataRead[rs*2],13,10]
+'      y=DataRead[(rs*2)+1]
+'     z=y&%00001111
+'      z=z*16
+'      if z=0 then z=4
+'      LedValue=z
+'      z=y>>4
+'      'hserout2 ["z=",bin8 z," ",dec y,13,10]
+'      z.bit3=0
+'      'hserout2 ["Fc=",bin8 z," ",dec y,13,10]      
+'      LedFunction=z      
+'      LedNr=LedInt
+'      gosub set_led
+'      'hserout2 ["int Led Nr:",dec LedInt," ",dec DataRead[rs*2]," ",dec Mod_Id_Link[ts-1]," ts=",dec ts," rs=",dec rs,13,10]
+'      ts=controller_in              'exit
+'    endif
+'  next ts
+'  'LedAct=
+'  'LedBrg=
+'return
+
+
+
+Set_led:
+  'hserout2 ["Set Led ",dec LedNr," ",dec LedValue," ",dec LedFunction,13,10]
+  QueueTxdByte0[QueueTxdPointer]=0
+  QueueTxdByte1[QueueTxdPointer]=3         'Set Led
+  QueueTxdByte2[QueueTxdPointer]=LedNr     'Led Number
+  QueueTxdByte3[QueueTxdPointer]=LedValue  'Led value
+  QueueTxdByte4[QueueTxdPointer]=LedFunction  'Led function
+  QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+  QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected 
+  QueueTxdNrBytes[QueueTxdPointer]=6 
+  gosub Add_Txd_queue
+return
+
+Check_Output_Module:
+   for i=1 to Controller_out
+     'hserout2 ["i=",dec i," ",dec stackser1[1],".",dec stackser1[2],".",dec stackser1[3]," ",dec Mod_ID1E[i+29],".",dec Mod_ID2E[i+29],".",dec Mod_ID3E[i+29],13,10]
+     if stackser1[0]=Mod_ID0E[i+29] and stackser1[1]=Mod_ID1E[i+29] and stackser1[2]=Mod_ID2E[i+29] and stackser1[3]=Mod_ID3E[i+29] then
+       Out[i-1]=stackser1[4]
+       gosub Calculate_NrofOutputs
+       x=Out[i-1]^OutOld[i-1]
+       'hserout2 ["Out:",dec i-1," ",bin8 Out[i-1]," ",bin8 OutOld[i-1]," ",bin8 x,13,10]
+       if x>0 then
+         for q=0 to 7
+           t=((i-1)*8)+q
+           y=x>>q
+           if LedAction[t]=1 and y.bit0=1 then      'Led action is present
+             'hserout2 ["Sent led Action: ",dec i," ",dec q," ",dec t," ",dec y,13,10]
+             I2CPage[I2CPointer]=221+(t/32)         'starts at page 221
+             I2CByte[I2CPointer]=(t//32)*8          'Byte
+             I2CNrBytes[I2CPointer]=8               'Nr of bytes to read
+             I2CAction[I2CPointer]=0                'Action 0 -> Led_Action
+             I2CDevice[I2CPointer]=0                'Device 0 -> Eeprom
+             I2CRD[I2CPointer]=1                    '1 -> Read, 0 -> Write
+             I2CDataCheck[I2CPointer]=i
+             I2CDataCheck2[I2CPointer]=q
+             gosub Increase_I2CPointer         
+           endif
+         next q
+         OutOld[i-1]=Out[i-1]
+       endif
+       if Mod_CAN[i+29]=1 then        'Check if it's a proper CAN control module that needs to answer the master
+         s=i
+         gosub write_output
+         s1="K"
+         s2=out[i-1]
+         gosub rs485_send5
+         i = controller_out           'Mod_ID found, exit loop
+       endif  
+     endif
+   next i  
+return
+
+rs485_send5: 
+  pauseus 1350
+  high RS485_mode     'send mode
+  hserout ["AAARC",Mod_ID0E[i+29],Mod_ID1E[i+29],Mod_ID2E[i+29],Mod_ID3E[i+29],s1,s2,13,10,13,10]
+  low RS485_mode      'receive mode 
+return
+
+Write_Output:
+  'Here the code that will write the output information to DALI or CAN output
+  if stackser1[0]="D" then     'Also take care of the Dim values
+    hserout2 ["CAN Output Module Nr ",dec s-1," ",dec (s-1)*8," ",dec (s*8)-1," ",Bin8 out[s-1]]
+    for q=0 to 7
+      hserout2 [" ",dec stackser1[6+q]]
+    next q
+    hserout2 [13,10]
+  else
+    hserout2 ["CAN Output Module Nr ",dec s-1," ",dec (s-1)*8," ",dec (s*8)-1," ",Bin8 out[s-1],13,10]
+  endif
+return
+
+
+calculate_NrofOutputs:
+  NrOfOutputsOn=0
+  NrOfLightsOn=0
+  for l=1 to controller_out                'check all output devices
+    if Mod_ID0E[l+29]="O" or Mod_ID0E[l+29]="D" or Mod_ID0E[l+29]="R" or Mod_ID0E[l+29]="o" or Mod_ID0E[l+29]="d" then
+      for n=0 to 7                            'check all outputs of a selected device
+        x=out[l-1]>>n
+        y=((l-1)*8)+n
+        if x.bit0=1 then                      'selected output is ON, remember (var TimerSet) to put back the timer value
+          if OutputType[y]=0 then             'It's an output
+            NrOfOutputsOn=NrOfOutputsOn+1
+            'hserout2 ["Output +1:",dec l-1," ",dec n," ",dec y," ",bin8 out[l-1],13,10]
+          else                                'It's a light
+            NrOfLightsOn=NrOfLightsOn+1
+            'hserout2 ["Light +1:",dec l-1," ",dec n," ",dec y," ",bin8 out[l-1],13,10]
+          endif  
+        endif  
+      next n
+    endif  
+  next l
+  gosub Led_Txd_rs232
+  Hserout2 ["Lights ON: ",dec NrOfLightsOn," Outputs ON: ",dec NrOfOutputsOn,13,10]
+  for l=0 to 15                                'Check all 16 led conditions for NrOfLightsOn
+    if LedAction229[l]=1 then
+      n=0
+      if l=0 and NrOfLightsOn=0 then
+        gosub Add_led_action         
+      elseif l=1 and NrOfLightsOn>0 then
+        gosub Add_led_action 
+      elseif NrOfLightsOn>(l-1) then
+        gosub Add_led_action              
+      endif
+    endif
+  next l
+  for l=0 to 15                               'Check all 16 led conditions for NrOfOutputsOn
+    n=1
+    if LedAction229[l+16]=1 then
+      if l=0 and NrOfOutputsOn=0 then
+        gosub Add_led_action         
+      elseif l=1 and NrOfOutputsOn>0 then
+        gosub Add_led_action 
+      elseif NrOfOutputsOn>(l-1) then
+        gosub Add_led_action              
+      endif
+    endif
+  next l  
+return
+
+Add_led_action:
+  I2CPage[I2CPointer]=229                'Page 229
+  I2CByte[I2CPointer]=(l*8)+(n*128)      'Byte
+  'hserout2 ["eeprom read: ",dec I2CPage[I2CPointer]," ",dec I2CByte[I2CPointer],13,10]
+  I2CNrBytes[I2CPointer]=8               'Nr of bytes to read
+  I2CAction[I2CPointer]=2                'Action 2 -> Led Action Condition based
+  I2CDevice[I2CPointer]=0                'Device 0 -> Eeprom
+  I2CRD[I2CPointer]=1                    '1 -> Read, 0 -> Write
+  I2CDataCheck[I2CPointer]=l             'Condition
+  I2CDataCheck2[I2CPointer]=NrOfLightsOn
+  gosub Increase_I2CPointer   
+return
+
+Check_CAN_Module:
+  if stackser1[4]="I" then
+    if stackser1[8]="E" then  'Eeprom data received
+      'hserout2 [dec stackser1[9]," ",dec stackser1[10]," ",dec stackser1[11],13,10]
+      gosub CheckEepromData
+    'endif
+      gosub sent_input
+    'bootloader
+    elseif stackser1[4]="F" and stackser1[5]="V" then      'Request Firmware Version
+      s1="V"
+      gosub send_F_response
+    elseif stackser1[4]="F" and stackser1[5]="R" then      'Perform Reset of the module
+      write 75,stackser1[6]                                'Write number of seconds that this module must remain in bootloader mode
+      s1="R"
+      gosub send_F_response
+      pause 5
+      asm
+        reset
+      endasm
+    endif        
+  endif 
+return
+
+send_F_response:
+  high RS485_mode 'send mode
+  if s1="V" then  'Firmware version
+    CRC2="C"+Mod_id1c+Mod_id2c+Mod_id3c+"F"+"V"+255+hardware+version+firmware+built
+    hserout ["AAARC","C",Mod_id1c,Mod_id2c,Mod_id3c,"F","V",255,hardware,version,firmware,built,0,"C",CRC2.byte1,CRC2.byte0,13,10,13,10]
+    hserout ["AAARC","C",Mod_id1c,Mod_id2c,Mod_id3c,"F","V",255,hardware,version,firmware,built,0,"C",CRC2.byte1,CRC2.byte0,13,10,13,10]
+    low RS485_mode  'Receive mode
+    'hserout2 ["Firmware V instruction",13,10]
+  else            'Reset
+    CRC2="C"+Mod_id1c+Mod_id2c+Mod_id3c+"F"+"R"+255
+    hserout ["AAARC","C",Mod_id1c,Mod_id2c,Mod_id3c,"F","R",255,"C",CRC2.byte1,CRC2.byte0,13,10,13,10]
+    hserout ["AAARC","C",Mod_id1c,Mod_id2c,Mod_id3c,"F","R",255,"C",CRC2.byte1,CRC2.byte0,13,10,13,10]
+    low RS485_mode  'Receive mode
+    'Hserout2 ["Firmware R instruction ",dec stackser1[6],13,10]
+  endif
+  low RS485_mode  'Receive mode
+return
+
+
+Check_input_module:
+  if NrOfInputModules>0 then
+    InputCount=0
+    exit_now=0
+    for s=1 to (NrOfSensorModules+NrOfInputModules)
+      if stackser1[0]=Mod_id0[s-1] and stackser1[1]=Mod_id1[s-1] and stackser1[2]=Mod_id2[s-1] and stackser1[3]=Mod_id3[s-1] then
+        if stackser1[4]="I" then
+          'hserout2 ["Ok ",dec s,13,10]
+          if stackser1[8]="E" then  'Eeprom data received
+            'hserout2 [dec stackser1[9]," ",dec stackser1[10]," ",dec stackser1[11],13,10]
+            gosub CheckEepromData
+          endif
+          indicate=stackser1[5]
+          if Indicate<>255 then
+            IndicateSet=1
+            IndicateTimer=0
+            gosub Led_Txd_rs232
+            Hserout2 ["Indicate Input:",bin8 Indicate," ",dec s," ",dec (((s-1)*8)+indicate)," ",dec (inputCount*8)+indicate,13,10]
+            gosub All_leds_off 
+            gosub Add_Txd_queue              
+            QueueTxdByte0[QueueTxdPointer]=0
+            QueueTxdByte1[QueueTxdPointer]=3         'Set Led
+            'QueueTxdByte2[QueueTxdPointer]=((s-1)*8)+indicate     'Led Number
+            QueueTxdByte2[QueueTxdPointer]=(inputCount*8)+indicate     'Led Number
+            QueueTxdByte3[QueueTxdPointer]=254       'Led value
+            QueueTxdByte4[QueueTxdPointer]=4         'Led function (4: dim up ...down...up...)
+            QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+            QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected 
+            QueueTxdNrBytes[QueueTxdPointer]=6 
+            gosub Add_Txd_queue
+            QueueTxdByte0[QueueTxdPointer]=0
+            QueueTxdByte1[QueueTxdPointer]=5         'Led indicate
+            'QueueTxdByte2[QueueTxdPointer]=((s-1)*8)+indicate     'Led Number
+            QueueTxdByte2[QueueTxdPointer]=(inputCount*8)+indicate     'Led Number
+            QueueTxdByte3[QueueTxdPointer]=254       'Led value
+            QueueTxdByte4[QueueTxdPointer]=4         'Led function (4: dim up ...down...up...)
+            QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+            QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected 
+            QueueTxdNrBytes[QueueTxdPointer]=6 
+            gosub Add_Txd_queue              
+            if IndicateOld<>(((s-1)*8)+indicate) and IndicateOld<240 then
+              QueueTxdByte0[QueueTxdPointer]=0
+              QueueTxdByte1[QueueTxdPointer]=3         'Set Led
+              QueueTxdByte2[QueueTxdPointer]=IndicateOld     'Led Number
+              QueueTxdByte3[QueueTxdPointer]=0         'Led value
+              QueueTxdByte4[QueueTxdPointer]=0         'Led function (0: on/off)
+              QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+              QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected 
+              QueueTxdNrBytes[QueueTxdPointer]=6 
+              gosub Add_Txd_queue              
+            endif              
+            IndicateOld=(inputCount*8)+indicate             
+          endif         
+          gosub sent_input
+          'InputStateSent[InputCount]=1
+          'InputStatePrev[InputCount]=InputState[InputCount]         
+          'pc=pc+1
+          'if pc>7 then pc=0   'maximum 8 (0-7) pulsecounters can be sent to the Master
+          
+          'delete
+          'if press=1 and InputCount=0 then
+          'if InputState[InputCount]<>255 then
+          'press=0
+          '  hserout2 ["I",dec inputcount," ",bin8 InputState[InputCount],13,10]
+          'endif
+                          
+        endif
+        exit_now=1  'exit  
+      endif
+      if Mod_id0[s-1]="I" then InputCount=InputCount+1
+      if exit_now=1 then s=30      
+    next s
+  endif              
+return
+
+sent_input:
+  gosub Check_queue     
+  s1=InputStateTemp
+  s2="P"     'Pulse counter information    
+  't_word=PulseCounter[pc]
+  t_word=0
+  s3=pc
+  s4=t_word.byte1
+  s5=t_word.byte0
+  s6="C"         'CRC check
+  t_word=s1+s2+s3+s4+s5+s6
+  s7=t_word.byte1
+  s8=t_word.byte0    
+  gosub rs485_send
+  gosub Clean_queue
+return
+
+Check_Temperature_Module:
+  if NrOfSensorModules>0 then
+    SensorCount=0
+    exit_now=0
+    SensorCT=0
+    for s=1 to (NrOfSensorModules+NrOfInputModules)
+      if Mod_id0[s-1]="T" then
+        SensorCT=SensorCT+1       
+        if stackser1[1]=Mod_id1[s-1] and stackser1[2]=Mod_id2[s-1] and stackser1[3]=Mod_id3[s-1] then
+        
+          indicate=stackser1[5]
+          if Indicate<>255 then
+            IndicateSet=1
+            IndicateTimer=0
+            gosub Led_Txd_rs232
+            Hserout2 ["Indicate Sensor:",bin8 Indicate," ",dec s,13,10]
+            gosub All_leds_off
+            gosub Add_Txd_queue             
+            QueueTxdByte0[QueueTxdPointer]=0
+            QueueTxdByte1[QueueTxdPointer]=4         'Set Indicate Sensor
+            QueueTxdByte2[QueueTxdPointer]=((SensorCT-1)*8)+indicate  'Sensor Number
+            QueueTxdByte3[QueueTxdPointer]=1         'Led on(1)/off(0)
+            QueueTxdByte4[QueueTxdPointer]=4         'Led function (4: dim up ...down...up...)
+            QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+            QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected 
+            QueueTxdNrBytes[QueueTxdPointer]=6 
+            gosub Add_Txd_queue           
+         '   if IndicateSensorOld<>(((SensorCT-1)*8)+indicate) and IndicateSensorOld<240 then
+         '     QueueTxdByte0[QueueTxdPointer]=0
+         '     QueueTxdByte1[QueueTxdPointer]=4         'Set Indicate Sensor
+         '     QueueTxdByte2[QueueTxdPointer]=IndicateSensorOld     'Led Number
+         '     QueueTxdByte3[QueueTxdPointer]=0         'Led value
+         '     QueueTxdByte4[QueueTxdPointer]=0         'Led function (0: on/off)
+         '     QueueTxdTime[QueueTxdPointer]=0          'sent message immeadiatly 
+         '     QueueTxdRetries[QueueTxdPointer]=0       'No retries so no response is expected 
+         '     QueueTxdNrBytes[QueueTxdPointer]=6 
+         '     gosub Add_Txd_queue              
+         '   endif              
+            IndicateSensorOld=((SensorCT-1)*8)+indicate              
+          endif         
+          gosub Check_queue        
+         
+          if stackser1[4]="T" then        'Temperature
+            gosub rs485_send2
+          elseif stackser1[4]="H" then    'Humidity 
+            gosub rs485_send3
+          elseif stackser1[4]="A" then    'ADC value
+            gosub rs485_send4
+          endif        
+          exit_now=1  'exit  
+        endif
+      endif  
+      if Mod_ID0[s-1]="T" then SensorCount=SensorCount+1            
+      if exit_now=1 then s=30      
+    next s
+  endif         
+return
+
+CheckEepromData:
+  I2CPage[I2CPointer]=stackser1[9]       'starts at page 221
+  I2CByte[I2CPointer]=stackser1[10]      'Byte
+  I2CNrBytes[I2CPointer]=1               'Nr of bytes to read
+  I2CAction[I2CPointer]=1                'Action 1 -> Compare Eeprom data (Thus I2CDataCheck[] is used)
+  I2CDataCheck[I2CPointer]=stackser1[11]
+  I2CDevice[I2CPointer]=0                'Device 0 -> Eeprom
+  I2CRD[I2CPointer]=1                    '1 -> Read, 0 -> Write
+  gosub Increase_I2CPointer 
+           
+  'DataWrite[0]=stackser1[9]     'start reading at page
+  'DataWrite[1]=stackser1[10]     'Byte   
+  'NrBytesRead=1      'Nr of bytes to read
+  'gosub read_eeprom  
+  'if DataRead[0]<>stackser1[11] then   'write data in eeprom
+  '   NrBytesWrite=3
+  '   if Datawrite[0]>220 and DataWrite[0]<236 then  'One of the CAN led pages have changed
+  '     x=DataWrite[0]
+  '     LedEepUpd[x-221]=1
+  '     NewDataEeprom2=1
+  '   else
+  '     NewDataEeprom=1  
+  '   endif
+  '   DataWrite[0]=stackser1[9]      'page
+  '   DataWrite[1]=stackser1[10]     'Byte
+  '   DataWrite[2]=stackser1[11]     'data to write
+  '   gosub write_eeprom
+  '   'delete
+  '   hserout2 [dec stackser1[9]," ",dec stackser1[10]," ",dec stackser1[11]," ",dec DataRead[0],13,10]
+  'endif
+  if stackser1[10]=255 then   'when byte 255 of every page is reached and new data is found
+    if NewDataEeprom=1 then 
+      NewDataEeprom=0
+      gosub Activate_eeprom
+    endif
+    if NewDataEeprom2=1 then 
+      NewDataEeprom2=0
+      gosub Activate_eeprom2
+    endif    
+  endif    
+return
+
+Activate_Eeprom:
+  'delete
+  gosub Led_Txd_rs232
+  hserout2 ["EEPROM activate",13,10]
+  'Read # of input devices
+  'eep_addr.byte0=1    'address
+  'eep_addr.byte1=0    'page
+  DataWrite[1]=1      'Byte  
+  DataWrite[0]=0      'page   
+  NrBytesRead=1       'Nr of bytes to read  
+  gosub read_eeprom   'read # of input modules
+  if DataRead[0]<31 then  'Max of 30 input devices can be used
+    controller_in=DataRead[0]
+  else
+    controller_in=0
+  endif
+  'delete      
+  hserout2 ["Nr of Inputs ",dec controller_in,13,10]
+  
+  'Read # of output devices
+  'eep_addr.byte0=2    'address
+  'eep_addr.byte1=0    'page
+  DataWrite[1]=2      'Byte  
+  DataWrite[0]=0      'page   
+  NrBytesRead=1       'Nr of bytes to read  
+  gosub read_eeprom   'read # of input modules
+  if DataRead[0]<31 then  'Max of 30 input devices can be used
+    controller_out=DataRead[0]
+  else
+    controller_out=0
+  endif
+  'delete      
+  hserout2 ["Nr of Outputs ",dec controller_out,13,10]   
+ 
+         
+  'Read ID's, toggling outputs, timer values etc
+  for tq=30 to 59
+    Mod_CAN[tq]=0
+  next tq
+  for t=1 to controller_out 'check eeprom for output devices
+    DataWrite[1]=0         'Byte  
+    DataWrite[0]=t+32      'page   
+    NrBytesRead=4          'Nr of bytes to read
+    gosub read_eeprom
+    u=DataRead[0]
+    v=DataRead[1]
+    w=DataRead[2]
+    s=DataRead[3]    
+    Mod_ID0E[t+29]=DataRead[0]
+    Mod_ID1E[t+29]=DataRead[1]
+    Mod_ID2E[t+29]=DataRead[2]
+    Mod_ID3E[t+29]=DataRead[3]
+    'delete
+    hserout2 ["IDE",dec t+29,": ",dec Mod_ID0E[t+29],".",dec Mod_ID1E[t+29],".",dec Mod_ID2E[t+29],".",dec Mod_ID3E[t+29],13,10]
+    for tq=1 to NrOfOutputModules
+      hserout2 [" Check module ",dec tq-1," -> ",Mod_ID0[tq+29],".",dec Mod_ID1[tq+29],".",dec Mod_ID2[tq+29],".",dec Mod_ID3[tq+29],13,10]
+      if u=Mod_ID0[tq+29] and v=Mod_ID1[tq+29] and w=Mod_ID2[tq+29] and s=Mod_ID3[tq+29] then
+        Mod_CAN[t+29]=1
+        'delete
+        hserout2 ["  ID",dec tq-1," ",Mod_ID0[tq+29],".",dec Mod_ID1[tq+29],".",dec Mod_ID2[tq+29],".",dec Mod_ID3[tq+29]," -> ",dec Mod_CAN[tq+29],13,10]
+        hserout2 ["   CAN Control Module -> ",dec t+29,13,10]
+      endif 
+    next tq
+    DataWrite[0]=t+32                     'page 33 and higher
+    DataWrite[1]=149
+    NrBytesRead=8          'Nr of bytes to read  
+    gosub read_eeprom
+    for tq=0 to 7
+      if dataread[tq]=0 then
+        OutputType[((t-1)*8)+tq]=0
+      else
+        OutputType[((t-1)*8)+tq]=1
+      endif
+      'hserout2 ["Type[",dec ((t-1)*8)+tq,"]=",dec OutputType[((t-1)*8)+tq],13,10]
+    next tq              
+  next t
+  
+  'Read ID's of input modules
+  for tq=0 to 29
+    Mod_CAN[tq]=0
+  next tq
+  for t=1 to controller_in 'check eeprom for input devices
+    DataWrite[1]=0         'Byte  
+    DataWrite[0]=t+1       'page   
+    NrBytesRead=4          'Nr of bytes to read
+    gosub read_eeprom
+    u=DataRead[0]
+    v=DataRead[1]
+    w=DataRead[2]
+    s=DataRead[3]
+    Mod_ID0E[t-1]=DataRead[0]
+    Mod_ID1E[t-1]=DataRead[1]
+    Mod_ID2E[t-1]=DataRead[2]
+    Mod_ID3E[t-1]=DataRead[3]
+    hserout2 ["IDE",dec t-1,": ",dec Mod_ID0E[t-1],".",dec Mod_ID1E[t-1],".",dec Mod_ID2E[t-1],".",dec Mod_ID3E[t-1],13,10]
+    for q=1 to NrOfInputModules+NrOfSensorModules
+      hserout2 [" Check module ",dec q-1," -> ",Mod_ID0[q-1],".",dec Mod_ID1[q-1],".",dec Mod_ID2[q-1],".",dec Mod_ID3[q-1],13,10]
+      if u=Mod_ID0[q-1] and v=Mod_ID1[q-1] and w=Mod_ID2[q-1] and s=Mod_ID3[q-1] then
+        Mod_CAN[t-1]=1
+       'delete
+        hserout2 ["  ID",dec q-1," ",Mod_ID0[q-1],".",dec Mod_ID1[q-1],".",dec Mod_ID2[q-1],".",dec Mod_ID3[q-1]," -> ",dec Mod_CAN[q-1],13,10]
+        hserout2 ["   CAN Control Module -> ",dec t-1,13,10]        
+      endif
+    next q              
+  next t
+  
+  'Minimum/Maximum Brightness Level CAN leds
+  DataWrite[1]=31     'Byte  
+  DataWrite[0]=0      'page   
+  NrBytesRead=2       'Nr of bytes to read  
+  gosub read_eeprom   'read Min/Max brightness
+  if DataRead[0]>127 then  'Minimum Brightness
+    LedBrightnessMin=0
+  else
+    LedBrightnessMin=DataRead[0]
+  endif        
+  LedBrightnessMax=DataRead[1]
+  'hserout2 ["Brightness Min=",dec LedBrightnessMin," Max=",dec LedBrightnessMax,13,10]
+  Gosub Sent_LedMinMax
+         
+return
+
+activate_eeprom2:
+  'Check which outputs have led actions linked to it
+  'delete
+  gosub Led_Txd_rs232
+  hserout2 ["EEPROM activate 2",13,10]  
+  for t=0 to ((controller_out*8)-1) 'check eeprom for LedActions
+    'hserout2 ["t=",dec t,13,10]
+    if LedEepUpd[t/32]=1 then       'Eeprom Page has updates
+      DataWrite[1]=(t//32)*8         'Byte  
+      DataWrite[0]=221+(t/32)       'starts at page 221   
+      NrBytesRead=8                 'Nr of bytes to read
+      'hserout2 [dec DataWrite[0]," ",dec Datawrite[1]," "]
+      gosub read_eeprom
+      'hserout2 ["Read Eeprom=",dec DataRead[0]," ",dec DataRead[1]," ",dec DataRead[2]," ",dec DataRead[3]," ",dec DataRead[4]," ",dec DataRead[5]," ",dec DataRead[6]," ",dec DataRead[7],13,10]
+      for q=0 to 3
+        if DataRead[q*2]<240 then 'valid led is programmed
+          LedAction[t]=1
+          'delete
+          hserout2 ["Output ",dec t," has a Led action linked on pos ",dec q,13,10]
+        endif
+      next q
+    endif                  
+  next t
+  for q=0 to 7
+    LedEepUpd[q]=0
+  next q
+  if LedEepUpd[8]=1 then       'Eeprom Page 229 has update(s)
+    LedEepUpd[8]=0
+    for t=0 to 31
+      DataWrite[1]=t*8          'Byte  
+      DataWrite[0]=229          'page 229   
+      NrBytesRead=8             'Nr of bytes to read
+      gosub read_eeprom
+      for q=0 to 3
+        if DataRead[q*2]<240 then 'valid led is programmed
+          LedAction229[t]=1
+          'delete
+          hserout2 ["Condition ",dec t," has a Led action linked on pos ",dec q,13,10]
+        endif
+      next q          
+    next t
+  endif    
+return
+
+
+activate_device:
+  If InitOngoing=1 then
+    for u=0 to 59
+      if stackser1[2]=Mod_ID0[u] and stackser1[3]=Mod_ID1[u] and stackser1[4]=Mod_ID2[u] and stackser1[5]=Mod_ID3[u] then 'received ID is the new 
+        if Mod_NE[u]="N" then
+          gosub Led_Txd_rs232
+          hserout2 ["New device found, u=",dec u," ",Mod_NE[u]," ",dec Mod_ID0[u],".",dec Mod_ID1[u],".",dec Mod_ID2[u],".",dec Mod_ID3[u],13,10]
+          if Mod_ID0[u]="C" then
+            if Mod_ID1[u]=mod_ID1C and Mod_ID2[u]=mod_ID2C and Mod_ID3[u]=mod_ID3C then
+              write 309,"C"
+              write 310,Mod_ID1[u]
+              write 311,Mod_ID2[u]
+              write 312,Mod_ID3[u]
+              write 313,"E"
+              Mod_NEC="E"
+              Mod_NE[u]="E"
+              w1=u*5
+              write w1,Mod_NE[u]        'Mode_ID in eeprom controller
+              write 1+w1,Mod_ID0[u]
+              write 2+w1,Mod_ID1[u]
+              write 3+w1,Mod_ID2[u]
+              write 4+w1,Mod_ID3[u]           
+              CAN_Init=1
+              Hserout2 ["CAN module programmed",13,10]
+            endif  
+          else
+            Mod_NE[u]="E"
+            w1=u*5
+            write w1,Mod_NE[u]        'Mode_ID in eeprom controller
+            write 1+w1,Mod_ID0[u]
+            write 2+w1,Mod_ID1[u]
+            write 3+w1,Mod_ID2[u]
+            write 4+w1,Mod_ID3[u]
+          endif
+        else
+          gosub Led_Txd_rs232
+          hserout2 ["Existing device found, u=",dec u," ",Mod_NE[u]," ",dec Mod_ID0[u],".",dec Mod_ID1[u],".",dec Mod_ID2[u],".",dec Mod_ID3[u],13,10]  
+        endif 
+        u=59    'exit        
+      endif
+    next u
+  endif  
+  'low led_green    
+return
+
+Display_generate_output:
+  IdOk=0
+  hserout2 ["generate Output ",dec u,13,10]
+  do
+    gosub Sub_Generate_ID
+  loop until IdOk=1 
+  hserout2 ["Add O/D/R module ",dec u," ",Mod_ID0[u],".",dec Mod_ID1[u],".",dec Mod_ID2[u],".",dec Mod_ID3[u],13,10] 
+return
+
+generate_ID:
+  if (mod_NEC=255 or Mod_NEC="N") and CAN_Init=0 then       'Generate ID of the CAN module itself
+    for u=0 to 29
+      if Mod_ID0[u]=255 then  'Empty non used module slot
+        gosub Led_Txd_rs232
+        Mod_ID0[u]="C"
+        IdOk=0
+        hserout2 ["generate CAN ",dec u,13,10]
+        do
+          gosub Sub_Generate_ID
+        loop until IdOk=1
+        Mod_ID1C=Mod_ID1[u]
+        Mod_ID2C=Mod_ID2[u]
+        Mod_ID3C=Mod_ID3[u]
+        Mod_NEC="N"
+        CAN_Init=1
+        hserout2 ["Add CAN module ",dec u," ",dec Mod_ID0[u],".",dec Mod_ID1[u],".",dec Mod_ID2[u],".",dec Mod_ID3[u],13,10]   
+        If NrOfInputModules<30 then NrOfInputModules=NrOfInputModules+1
+        'if ((NrOfOutputs/8)+1)<=NrOfOutputModules then u=59 'exit
+        u=29 'exit      
+      endif
+    next u    
+  endif  
+  if NrOfOutputsO>0 and ((NrOfOutputsO-1)/8)+1>NrOfOutputModulesO then  'We still have non-initialized output modules
+    for u=30 to 59            'Only output type modules (output modules is from 30 to 59)
+      if Mod_NE[u]=255 then   'Empty non used module slot
+        gosub Led_Txd_rs232
+        Mod_ID0[u]="O"
+        gosub Display_generate_output
+        If NrOfOutputModules<30 then 
+          NrOfOutputModules=NrOfOutputModules+1
+          NrOfOutputModulesO=NrOfOutputModulesO+1
+        endif  
+        if ((NrOfOutputsO-1)/8)+1<=NrOfOutputModulesO then u=59 'exit      
+      endif
+    next u
+  endif
+  if NrOfOutputsD>0 and ((NrOfOutputsD-1)/8)+1>NrOfOutputModulesD then  'We still have non-initialized dimmer modules
+    for u=30 to 59            'Only output type modules (output modules is from 30 to 59)
+      if Mod_NE[u]=255 then   'Empty non used module slot
+        gosub Led_Txd_rs232
+        Mod_ID0[u]="D"
+        gosub Display_generate_output
+        If NrOfOutputModules<30 then 
+          NrOfOutputModules=NrOfOutputModules+1
+          NrOfOutputModulesD=NrOfOutputModulesD+1
+        endif  
+        if ((NrOfOutputsD-1)/8)+1<=NrOfOutputModulesD then u=59 'exit      
+      endif
+    next u
+  endif
+  if NrOfOutputsR>0 and ((NrOfOutputsR-1)/8)+1>NrOfOutputModulesR then  'We still have non-initialized Roller modules
+    for u=30 to 59            'Only output type modules (output modules is from 30 to 59)
+      if Mod_NE[u]=255 then   'Empty non used module slot
+        gosub Led_Txd_rs232
+        Mod_ID0[u]="R"
+        gosub Display_generate_output
+        If NrOfOutputModules<30 then 
+          NrOfOutputModules=NrOfOutputModules+1
+          NrOfOutputModulesR=NrOfOutputModulesR+1
+        endif  
+        if ((NrOfOutputsR-1)/8)+1<=NrOfOutputModulesR then u=59 'exit      
+      endif
+    next u
+  endif      
+  if NrOfInputs>0 and((NrOfInputs-1)/8)+1>NrOfInputModules then  'We still have non-initialized input modules
+    for u=0 to 29            'Only input type modules (output modules is from 30 to 59)
+      if Mod_NE[u]=255 then  'Empty non used module slot
+        gosub Led_Txd_rs232
+        Mod_ID0[u]="I"
+        IdOk=0
+        hserout2 ["generate Input ",dec u,13,10]
+        do
+          gosub Sub_Generate_ID
+        loop until IdOk=1 
+        hserout2 ["Add input module ",dec u," ",dec Mod_ID0[u],".",dec Mod_ID1[u],".",dec Mod_ID2[u],".",dec Mod_ID3[u],13,10] 
+        If NrOfInputModules<30 then NrOfInputModules=NrOfInputModules+1
+        if ((NrOfInputs-1)/8)+1<=NrOfInputModules then u=29 'exit      
+      endif
+    next u
+  endif
+  if NrOfSensors>0 and((NrOfSensors-1)/8)+1>NrOfSensorModules then    
+    for u=0 to 29
+      if Mod_NE[u]=255 then  'Empty non used module slot
+        gosub Led_Txd_rs232
+        Mod_ID0[u]="T"
+        IdOk=0
+        hserout2 ["generate Temperature ",dec u,13,10]
+        do
+          gosub Sub_Generate_ID
+        loop until IdOk=1
+        hserout2 ["Add Temp module ",dec u," ",dec Mod_ID0[u],".",dec Mod_ID1[u],".",dec Mod_ID2[u],".",dec Mod_ID3[u],13,10]  
+        If NrOfSensorModules<30 then NrOfSensorModules=NrOfSensorModules+1
+        if ((NrOfSensors-1)/8)+1<=NrOfSensorModules then u=29 'exit      
+      endif                                 
+    next u    
+  endif      
+Return
+
+Sub_Generate_ID:
+    for q=0 to 2
+      random w1
+      w1=w1+RndValue                         'generate random ID
+      if w1.byte0<>255 and w1.byte0<>0 then  'Random value if ok
+        tmp[q]=w1.byte0
+      else                                   'Random value is not ok
+        tmp[q]=171+q                         'Random value (My bithday :))
+      endif
+    next q
+    gosub Led_Txd_rs232
+    hserout2 ["Generate ",dec tmp[0],".",dec tmp[1],".",dec tmp[2],13,10]
+    IdOk=1
+    for l=0 to 59  'check if the ID already exist
+       if Mod_ID1[l]=tmp[0] and Mod_ID2[l]=tmp[1] and Mod_ID3[l]=tmp[2] then
+         IdOk=0
+         hserout2 ["Double ID exist, regenerate",13,10]
+       endif
+    next l
+    if IdOk=1 then
+      Mod_NE[u]="N"
+      Mod_ID1[u]=tmp[0]
+      Mod_ID2[u]=tmp[1]
+      Mod_ID3[u]=tmp[2]
+      hserout2 ["Generate New ID ",mod_ID0[0],".",dec mod_ID1[0],".",dec mod_ID2[0],".",dec mod_ID3[0],13,10]
+    endif  
+Return
+
+rs485_send:
+  'if mode="L" then 
+    'high led_red
+    'low led_green
+    'LedAction=0
+    'Ledcounter=20
+  'endif  
+  pauseus 1350
+  high RS485_mode     'send mode
+  hserout ["AAARC",Mod_ID0[s-1],Mod_ID1[s-1],Mod_ID2[s-1],Mod_ID3[s-1],s1,s2,s3,s4,s5,s6,s7,s8,13,10,13,10]
+  low RS485_mode      'receive mode 
+return
+
+rs485_send2:
+  pauseus 1350
+  z=sensorcount*8
+  if z<25 then
+    CRC2="T"+temperature[z]+temperature[z+1]+temperature[z+2]+temperature[z+3]
+    CRC2=CRC2+temperature[z+4]+temperature[z+5]+temperature[z+6]+temperature[z+7]  
+    high RS485_mode           'send mode
+    hserout ["AAARC",Mod_ID0[s-1],Mod_ID1[s-1],Mod_ID2[s-1],Mod_ID3[s-1],"T",temperature[z],temperature[z+1],temperature[z+2],temperature[z+3],temperature[z+4],temperature[z+5],temperature[z+6],temperature[z+7],"C",CRC2.byte1,CRC2.byte0,13,10,13,10]
+    low RS485_mode            'receive mode 
+  endif  
+return
+
+rs485_send3:  
+  'delete
+  'hserout2 ["send3",13,10]
+  
+  pauseus 1350
+  z=sensorcount*8
+  if z<25 then  
+    CRC2="H"+humidity[z]+humidity[z+1]+humidity[z+2]+humidity[z+3]
+    CRC2=CRC2+humidity[z+4]+humidity[z+5]+humidity[z+6]+humidity[z+7]
+    high RS485_mode           'send mode
+    hserout ["AAARC",Mod_ID0[s-1],Mod_ID1[s-1],Mod_ID2[s-1],Mod_ID3[s-1],"H",humidity[z],humidity[z+1],humidity[z+2],humidity[z+3],humidity[z+4],humidity[z+5],humidity[z+6],humidity[z+7],"C",CRC2.byte1,CRC2.byte0,13,10,13,10]
+    low RS485_mode            'receive mode
+  endif   
+return
+
+rs485_send4:  
+  'delete
+  'hserout2 ["send4",13,10]
+  
+  pauseus 1350
+  z=sensorcount*8
+  if z<25 then  
+    CRC2="A"+AdcValue[z]+AdcValue[z+1]+AdcValue[z+2]+AdcValue[z+3]
+    CRC2=CRC2+AdcValue[z+4]+AdcValue[z+5]+AdcValue[z+6]+AdcValue[z+7]
+    high RS485_mode           'send mode
+    hserout ["AAARC",Mod_ID0[s-1],Mod_ID1[s-1],Mod_ID2[s-1],Mod_ID3[s-1],"A",AdcValue[z],AdcValue[z+1],AdcValue[z+2],AdcValue[z+3],AdcValue[z+4],AdcValue[z+5],AdcValue[z+6],AdcValue[z+7],"C",CRC2.byte1,CRC2.byte0,13,10,13,10]
+    low RS485_mode            'receive mode 
+  endif  
+return
+
+'rs485_send5:
+'  'if mode="L" then 
+'    'high led_red
+'    'low led_green
+'    'LedAction=0
+'    'Ledcounter=20
+'  'endif  
+'  pauseus 1350
+'  high RS485_mode     'send mode
+'  hserout ["AAARC","C",Mod_ID1C,Mod_ID2C,Mod_ID3C,s1,s2,s3,s4,s5,s6,s7,s8,13,10,13,10]
+'  low RS485_mode      'receive mode 
+'return
+
+Wait_For_Feedback:
+  for p=0 to 250
+    pause 2
+    gosub Interprete_Serial
+  next p
+return
+
+Check_input_startup:
+  for s=0 to 20
+    low LED_ST
+    pause 250
+    gosub Led_Txd_rs232
+    if Button2=0 then
+      if s>4 then
+        Hserout2 ["Full Erase of internal and external EEPROM",13,10]
+        gosub Erase_eeprom
+        s=100
+      endif
+    else
+      s=100     'exit
+      hserout2 ["Exit",13,10]
+    endif
+    high LED_ST
+    pause 250
+  next s
+return
+
+Erase_eeprom:
+  low LED_ST
+  NrOfInputModules=0
+  NrOfOutputModules=0
+  InputCount=0
+  SensorCount=0
+  NrOfInputs=0
+  write 304,255               'Nr of inputs used
+  write 305,255               'Nr of sensors used
+  write 306,255               'Nr of outputs used
+  write 307,255               'Nr of Dimmers used
+  write 308,255               'Nr of Rollers used
+  write 309,255               'CAN address
+  write 310,255               
+  write 311,255
+  write 312,255
+  write 313,255
+  'hw version 320
+  'fw version 321,322,323
+  'Addr CRC 324, 325, 326, 327 - RESERVED
+  'Bootloader 328, 329 (flashmode), 330 (Time in bootloader), 331 (status bootloader) - RESERVED
+  
+  for q=0 to 59
+    w1=q*5
+    'I2CAction[I2CPointer]=2       'Action 2 -> Status Leds
+    'I2CDevice[I2CPointer]=1       'Device 1 -> PCF8574
+    'I2CByteWrite1[I2CPointer]=0
+    'I2CRD[I2CPointer]=0           '1 -> Read, 0 -> Write
+    'gosub Increase_I2CPointer    
+    if Mod_NE[q]="E" then
+      Mod_NE[q]=255
+      write w1,255        'Mode_ID in eeprom controller
+      write 1+w1,255
+      write 2+w1,255
+      write 3+w1,255
+      write 4+w1,255
+      Mod_NE[q]=255        'Mode_ID in eeprom controller
+      mod_ID0[q]=255
+      Mod_ID1[q]=255
+      Mod_ID2[q]=255
+      Mod_ID3[q]=255                    
+    endif    
+  next q
+  for q=0 to 255
+    for t=0 to 255
+      DataWrite[1]=t      'Byte  
+      DataWrite[0]=q      'page   
+      NrBytesRead=1       'Nr of bytes to read  
+      gosub read_eeprom   
+      if DataRead[0]<>255 then  
+        I2CPage[I2CPointer]=q                  'Page
+        I2CByte[I2CPointer]=t                  'Byte
+        I2CNrBytes[I2CPointer]=3               'Nr of bytes to write
+        I2CAction[I2CPointer]=2                'Action 2 -> write eeprom
+        I2CDevice[I2CPointer]=0                'Device 0 -> Eeprom
+        I2CRD[I2CPointer]=0                    '1 -> Read, 0 -> Write
+        I2CByteWrite1[I2CPointer]=255          'data to be written
+        gosub Increase_I2CPointer
+        hserout2 ["EEP ",dec q," ",dec t,13,10]
+        for u=0 to 200
+          pauseus 50
+          gosub check_i2cqueue
+        next u
+        gosub Check_i2c_error          
+      endif    
+    next t
+  next q
+  gosub Led_Txd_rs232
+  hserout2 ["Erase done",13,10]
+  high LED_ST
+  pause 50
+  asm
+    reset
+  endasm
+return
+
+
+check_inputs: 'during initialization, inputs needs to be checked
+  if Button2=0 then    'initialization button is pressed
+    InitOngoing=1
+    gosub generate_id
+    gosub Led_Txd_rs232
+    hserout2 ["NrOfInputModules=",dec NrOfInputModules,"/",dec NrOfInputs," NrOfSensorModules=",dec NrOfSensorModules,"/",dec NrOfSensors,13,10]
+    high RS485_mode     'send mode
+    hserout ["AAARC","C",Mod_ID1C,Mod_ID2C,Mod_ID3C,0,Mod_NEC,"T","C",0,0,0,0,13,10,13,10]
+    low RS485_mode      'receive mode
+    gosub Wait_For_Feedback 
+    if mod_NEC="N" then 'Non initialized modules           
+      Hserout2 ["Non initialized CAN module found",13,10]
+    else                                          'All modules are initialized
+      Hserout2 ["CAN module is initialized",13,10]                                           
+    endif    
+    
+    if NrOfInputs>0 or NrOfSensors>0 then
+      for s=1 to 30
+        if Mod_NE[s-1]="N" or Mod_NE[s-1]="E" then
+          s1=0
+          s2=Mod_NE[s-1]   'E->existing,N->New
+          s3="T"           'Type of input Module
+          s4="C"           'CAN module
+          hserout2 [dec (s-1)," ",Mod_NE[s-1]," ",dec Mod_ID0[s-1],".",dec Mod_ID1[s-1],".",dec Mod_ID2[s-1],".",dec Mod_ID3[s-1],13,10]
+          gosub rs485_send
+          gosub Wait_For_Feedback
+        endif        
+      next s
+          
+      if NrOfInputs>0 and (((NrOfInputs-1)/8)+1)>NrOfInputModules then   'Non initialized modules
+        Hserout2 ["Non initialized Input modules found (",dec NrOfInputs,")",13,10]
+      else                                          'All modules are initialized
+        Hserout2 ["All Input modules are initialized",13,10]            
+      endif
+    endif
+    if NrOfSensors>0 then      
+      if (((NrOfSensors-1)/8)+1)>NrOfSensorModules then 'Non initialized modules
+        Hserout2 ["Non initialized Sensor modules found (",dec NrOfSensors,")",13,10]
+      else                                          'All modules are initialized
+        Hserout2 ["All Sensor modules are initialized",13,10]                                            
+      endif    
+    endif
+
+
+    
+    for s=31 to 60
+      hserout2 ["  Mod:",dec s-1," ",Mod_NE[s-1]," ",Mod_ID0[s-1],".",dec Mod_ID1[s-1],".",dec Mod_ID2[s-1],".",dec Mod_ID3[s-1],13,10]
+      if Mod_NE[s-1]="N" or Mod_NE[s-1]="E" then
+        s1=0
+        s2=Mod_NE[s-1]   'E->existing,N->New
+        s3="T"           'Type
+        s4="C"           'CAN
+        hserout2 [dec (s-1)," ",Mod_NE[s-1]," ",dec Mod_ID0[s-1],".",dec Mod_ID1[s-1],".",dec Mod_ID2[s-1],".",dec Mod_ID3[s-1],13,10]
+        gosub rs485_send
+        gosub Wait_For_Feedback
+      endif        
+    next s   
+    pause 200
+    InitOngoing=0
+  endif
+return
+
+Check_NonInitModules:
+  NonInit=0
+  if NrOfInputs>0 and (((NrOfInputs-1)/8)+1)>NrOfInputModules then NonInit=1     'Non initialized modules
+  if NrOfSensors>0 and (((NrOfSensors-1)/8)+1)>NrOfSensorModules then NonInit=1   'Non initialized modules
+  if NrOfOutputsO>0 and (((NrOfOutputsO-1)/8)+1)>NrOfOutputModulesO then NonInit=1   'Non initialized modules
+  if NrOfOutputsD>0 and (((NrOfOutputsD-1)/8)+1)>NrOfOutputModulesD then NonInit=1   'Non initialized modules
+  if NrOfOutputsR>0 and (((NrOfOutputsR-1)/8)+1)>NrOfOutputModulesR then NonInit=1   'Non initialized modules      
+  if Mod_NEC=255 or Mod_NEC="N" then NonInit=1              'Non initialized modules 
+return
+
+Set_CanLeds:
+  if CanOk<20000 then CanOk=CanOk+1
+  LedBlinkCounter=LedBlinkCounter+1
+  if LedBlinkCounter>2 then
+    LedBlinkCounter=0
+    gosub Check_NonInitModules
+    if LedBlink=0 then
+      LedBlink=1
+    else
+      LedBlink=0
+    endif    
+  endif
+  IF CanOk>300 then   'Can not OK
+    LedFP[6]=0        '1->Led ON, 0->Led OFF
+    LedFct[6]=0       '0->Led ON/OFF, 1->Blinking led
+    LedTmr[6]=0       'Time until leds goes off
+    LedTmrAct[6]=0    '=1 -> Timer used, =0 -> Timer not used 
+  else                'Can OK
+    if NonInit=0 then 'All Modules are initialized
+      LedFP[6]=1      '1->Led ON, 0->Led OFF
+      LedFct[6]=0     '0->Led ON/OFF, 1->Blinking led
+      LedTmr[6]=0     'Time until leds goes off
+      LedTmrAct[6]=0  '=1 -> Timer used, =0 -> Timer not used
+    else              'Not all modules are initialized
+      LedFP[6]=1      '1->Led ON, 0->Led OFF
+      LedFct[6]=1     '0->Led ON/OFF, 1->Blinking led
+      LedTmr[6]=0     'Time until leds goes off
+      LedTmrAct[6]=0  '=1 -> Timer used, =0 -> Timer not used      
+    endif       
+  endif
+return
+
+Check_LedsFP:      'check leds FrontPanel
+  if LedCounter>100 then
+    LedCounter=0
+    gosub Set_CanLeds
+    for q=0 to 7
+      if LedTmr[q]>0 then LedTmr[q]=LedTmr[q]-1
+      if LedFct[q]=0 then                   'ON/OFF function
+        if LedTmr[q]=0 and LedFP[q]=1 and LedTmrAct[q]=1 then  'Switch Off led
+          gosub Led_FP_Off
+          LedFP[q]=0
+        endif
+        if LedTmrAct[q]=0 and LedFp[q]=0 then
+          gosub Led_FP_Off
+        endif         
+        if LedTmr[q]>0 and LedFP[q]=1 then  'Switch On led
+          gosub Led_FP_On
+        endif
+        if LedTmrAct[q]=0 and LedFp[q]=1 then
+          gosub Led_FP_On
+        endif        
+      else                                  'Blink function
+        if LedFP[q]=1 then                  'Led blinking
+          if LedBlink=1 then                'Led ON
+            gosub Led_FP_On
+          else                              'Led OFF
+            gosub Led_FP_Off
+          endif
+        else                                'led off
+          gosub Led_FP_Off
+        endif
+      endif
+    next q
+    if i2cDataPCF<>i2cDataOldPCF then
+      I2CAction[I2CPointer]=2       'Action 2 -> Status Leds
+      I2CDevice[I2CPointer]=1       'Device 1 -> PCF8574
+      I2CByteWrite1[I2CPointer]=i2cdataPCF
+      I2CRD[I2CPointer]=0           '1 -> Read, 0 -> Write
+      gosub Increase_I2CPointer
+      'hserout2 ["Write FP ",bin8 i2cdataPCF,13,10] 
+    endif
+    i2cDataOldPCF=i2cDataPCF
+  endif
+return
+
+Led_FP_Off:
+  x=00000001<<q
+  i2cDataPCF=i2cDataPCF|x  
+return
+
+Led_FP_On:
+  x=00000001<<q
+  x=~x
+  i2cDataPCF=i2cDataPCF&x
+return
+
+'Check_StatusLed:
+'  if LedCounter>100 then
+'    LedCounter=0
+'    if ledI2c=1 then
+'      ledi2c=0
+'      I2CAction[I2CPointer]=2       'Action 2 -> Status Leds
+'      I2CDevice[I2CPointer]=1       'Device 1 -> PCF8574
+'      I2CByteWrite1[I2CPointer]=i2cdataPCF
+'      I2CRD[I2CPointer]=0           '1 -> Read, 0 -> Write
+'      gosub Increase_I2CPointer                 
+'    else
+'      if ledI2c_2=1 then
+'        ledi2c_2=0
+'        I2CAction[I2CPointer]=2       'Action 2 -> Status Leds
+'        I2CDevice[I2CPointer]=1       'Device 1 -> PCF8574
+'        I2CByteWrite1[I2CPointer]=i2cdataPCF_2
+'        I2CRD[I2CPointer]=0           '1 -> Read, 0 -> Write
+'        gosub Increase_I2CPointer        
+'      endif        
+'    endif    
+'  endif    
+'Return
+
+check_SerialErrors:
+  if RCSTA1.2=1 then  'frame error bit
+    x=RCREG1
+  endif
+  if RCSTA1.1=1 then  'Overrun Error bit
+    RCSTA1.4=0    'disable receiver
+    pause 2
+    RCSTA1.4=1    'enable receiver
+  endif
+return
+
+'------------------------------------------------------------------------------
+' I2C subroutines
+'------------------------------------------------------------------------------
+
+I2C_Action:
+  'hserout2 ["Perform Action ",dec DataRead[0]," ",dec DataRead[1]," ",dec DataRead[2]," ",dec DataRead[3]," ",dec DataRead[4],13,10]
+  if I2CAction[I2Ccurrent]=0 then       'Set Led
+    x=I2CDataCheck[I2Ccurrent]
+    y=out[x-1]
+    q=I2CDataCheck2[I2Ccurrent]
+    outOn=y>>q
+    'delete
+    'hserout2 ["x=",dec x," y=",bin8 y," q=",dec q," OutOn=",bin8 outon,13,10]
+    gosub Led_action
+  elseif I2CAction[I2Ccurrent]=1 then   'Compare Eeprom data 
+    if DataRead[0]<>I2CDatacheck[I2Ccurrent] then   'write data in eeprom
+      I2CPage[I2CPointer]=I2CPage[I2Ccurrent]           'starts at page
+      I2CByte[I2CPointer]=I2CByte[I2Ccurrent]           'Byte
+      I2CByteWrite1[I2CPointer]=I2CDatacheck[I2Ccurrent]
+      I2CNrBytes[I2CPointer]=3                          'Nr of bytes to write
+      I2CAction[I2CPointer]=2                           'Action 2 -> Eeprom Write Timeout
+      I2CDevice[I2CPointer]=0                           'Device 0 -> Eeprom
+      I2CRD[I2CPointer]=0                               '1 -> Read, 0 -> Write
+      gosub Increase_I2CPointer
+      hserout2 ["EEP WRITE ",dec I2CPage[I2Ccurrent]," ",dec I2CByte[I2Ccurrent]," ",dec I2CDatacheck[I2Ccurrent],13,10] 
+      if I2CPage[I2Ccurrent]>220 and I2CPage[I2Ccurrent]<230 then  'One of the CAN led pages have changed                  
+        x=I2CPage[I2Ccurrent]
+        LedEepUpd[x-221]=1
+        'hserout2 ["LedEepUpd[",dec x-221,"]=",dec LedEepUpd[x-221],13,10]
+        NewDataEeprom2=1
+      else
+        NewDataEeprom=1  
+      endif
+    endif    
+  elseif I2CAction[I2Ccurrent]=2 then   'Set Led that is generate by condition (by NrOfLightsOn or NrOfOutputsOn)
+    'hserout2 ["Led Condition ",dec I2CDataCheck[I2Ccurrent]," ",dec I2CDataCheck2[I2Ccurrent],13,10]
+    OutOn=1
+    gosub led_action    
+  endif       
+  I2CAction[I2Ccurrent]=255
+  gosub Increase_I2Ccurrent
+return
+
+Check_I2CQueue:
+  if I2CBusy=1 then                 'I2C is still active
+    if i2cRD[I2CCurrent]=1 then     'Read
+      if phase=0 then
+        gosub Read_i2c2
+      else
+        gosub Read_i2c_p2
+      endif                         
+    else                            'Write
+      gosub Write_i2c2
+    endif    
+  else                              'I2C is not active thus following I2C instruction can be executed
+    if I2CPointer<>I2CCurrent then  'Still instructions in the queue
+      if I2CAction[I2CCurrent]<255 then         'Valid instruction
+        'Hserout2["I2CCurrent=",dec I2CCurrent," I2CPointer=",dec I2CPointer," I2CPage=",dec I2CPage[I2CCurrent]," I2CByte=",dec I2CByte[I2CCurrent]," I2CNrBytes=",dec I2CNrBytes[I2CCurrent]," I2CAction=",dec I2cAction[I2CCurrent],13,10]
+        gosub Start_i2C
+        'I2CAction[I2CCurrent]=255
+        'I2CBusy=0
+      else
+      '  hserout2["No valid I2c action ",dec i2cCurrent,13,10]
+        gosub Increase_I2CCurrent
+      endif  
+    endif
+  endif
+return
+
+Increase_I2CCurrent:
+  x=i2cCurrent
+  I2CCurrent=I2CCurrent+1
+  if I2CCurrent>(I2CQueueMax-1) then I2CCurrent=0
+  'delete
+  'hserout2 ["I2CCurrent=",dec I2CCurrent,13,10]
+return
+
+Increase_I2CPointer2:
+  x=i2cPointer
+  I2CPointer=I2CPointer+1
+  if I2CPointer>(I2CQueueMax-1) then I2CPointer=0
+  If i2cCurrent=I2cPointer then
+    I2cPointer=x   'Do not overwrite own queue
+    gosub Led_Txd_rs232
+    hserout2 ["I2C Queue Overrun ",dec I2CPointer," ",dec i2cCurrent,13,10]
+  endif
+  'delete
+  'hserout2 ["I2CCurrent=",dec I2CCurrent,13,10]
+return
+
+Increase_I2CPointer:
+  if I2CRD[i2cPointer]=0 and i2cPointer<>i2cCurrent then   'instruction that just has been put in the queue is for reading
+    if i2cpointer=0 then 
+      x=I2CQueueMax-1
+    else
+      x=i2cPointer-1
+    endif    
+    if I2cPage[i2cPointer]<>I2cPage[x] or I2cByte[i2cPointer]<>I2cByte[x] or I2cNrBytes[i2cPointer]<>I2cNrBytes[x] then  'Check if previous instruction is not the same
+      gosub Increase_I2CPointer2
+      'delete
+    'else
+    '  hserout2 ["Double ",dec I2cPage[x]," ",dec I2cByte[x]," ",dec I2cNrBytes[x],13,10] 
+    endif
+  else
+    gosub Increase_I2CPointer2
+  endif  
+  'delete
+  'hserout2 ["I2CPointer=",dec I2CPointer,13,10]
+return
+
+Start_i2c:
+  if I2CDevice[I2CCurrent]=0 then   'Eeprom
+    if EepromOK=1 then
+      if i2cRD[I2CCurrent]=1 then   'Read
+        i2ccont=EEPROM_ADDRESS
+        NrBytesWrite=2
+        NrBytesRead=I2CNrBytes[I2CCurrent] 
+        DataWrite[1]=I2CByte[I2CCurrent]         'Byte  
+        DataWrite[0]=I2CPage[I2CCurrent]         'page        
+        i2ccont.bit0=0    'First write, then read
+        i2cint=1
+        i2cmode=1
+        TMR0L=0
+        TMR0H=0  
+        T0CON.7=1  'timer 0 enabled
+        dw=0
+        SSPCON2.0=1 'generate start condition
+        i2cdone[1]=0
+        i2cdone[2]=0
+        phase=0
+        i2cBusy=1                                'write
+      else                                       'Only 1 byte can be written now
+        i2ccont=EEPROM_ADDRESS
+        NrBytesWrite=3
+        'NrBytesWrite=I2CNrBytes[I2CCurrent]
+        DataWrite[1]=I2CByte[I2CCurrent]         'Byte  
+        DataWrite[0]=I2CPage[I2CCurrent]         'page 
+        DataWrite[2]=I2CByteWrite1[I2CCurrent]                                 
+        i2ccont.bit0=0    'Write
+        i2cint=1
+        i2cmode=1
+        TMR0L=0
+        TMR0H=0  
+        T0CON.7=1  'timer 0 enabled
+        dw=0
+        i2cdone[0]=0
+        i2cdone[1]=0  
+        I2CBusy=1
+        SSPCON2.0=1 'generate start condition
+        'hserout2 ["No write routine yet",13,10]
+      endif  
+    endif  
+  elseif I2CDevice[I2CCurrent]=1 then   'PCF8574
+    if PCF8574OK=1 then
+      i2ccont=PCF8574i2ccont
+      NrBytesWrite=1
+      DataWrite[0]=I2CByteWrite1[I2CCurrent] 
+      i2ccont.bit0=0    'Write
+      i2cint=1
+      i2cmode=1
+      TMR0L=0
+      TMR0H=0  
+      T0CON.7=1  'timer 0 enabled
+      dw=0
+      i2cdone[0]=0
+      i2cdone[1]=0  
+      I2CBusy=1
+      SSPCON2.0=1 'generate start condition         
+    endif
+  endif
+return
+
+Write_i2c2:
+  'while (i2cMode>0)   
+    if i2cMode=2 and i2cdone[0]=0 then 'shift out i2c control byte
+      i2cdone[0]=1        
+      SSPBUFbyte=i2ccont
+      gosub write_SSPBUF        
+    endif
+    if i2cMode=3+dw and i2cdone[1]=0 then 'check acknowledge and shift out additional write bytes       
+      gosub check_i2c_acknowledge
+      if i2cAck=1 then
+        SSPBUFbyte=DataWrite[dw]
+        gosub write_SSPBUF        
+        if NrBytesWrite>(dw+1) then 
+          dw=dw+1
+        else
+          i2cdone[1]=1  
+        'hserout2 ["b",dec i2cmode," "]
+        endif        
+      endif
+    endif   
+    if i2cMode=3+NrBytesWrite then 'sent stop 
+      gosub check_i2c_acknowledge
+      if i2cAck=1 then
+        SSPCON2.2=1 
+      endif             
+    endif
+    if i2cMode=4+NrBytesWrite then 'end transmission 
+      T0CON.7=0       'stop timer0
+      err=0
+      if I2CDevice[I2Ccurrent]=0 then  'Eeprom writing
+        i2cMode=5+NrBytesWrite
+        i2cTimeOut=4
+      else
+        I2CBusy=0
+        i2cMode=0      
+        I2CAction[I2Ccurrent]=255
+        gosub Increase_I2Ccurrent
+      endif
+    endif
+    if i2cMode=5+NrBytesWrite then     'Wait for eeprom to write all his data
+      if i2cTimeOut=0 then
+        I2CBusy=0
+        i2cMode=0      
+        I2CAction[I2Ccurrent]=255
+        'hserout2["Written ",dec I2CPage[I2Ccurrent]," ",dec I2CByte[I2Ccurrent]," ",dec I2CByteWrite1[I2Ccurrent],13,10]
+        gosub Increase_I2Ccurrent      
+      'else
+      '  hserout2["N"]
+      endif
+    endif     
+  'wend         
+return
+
+
+Read_i2c2:
+  'while (i2cMode>0)   
+    if i2cMode=2 and i2cdone[1]=0 then 'shift out i2c control byte
+      i2cdone[1]=1
+      SSPBUFbyte=i2ccont
+      gosub write_SSPBUF      
+      'hserout2 ["a",dec i2cmode," "]
+    endif
+    if i2cMode=3+dw and i2cdone[2]=0 then 'check acknowledge and shift out additional write bytes   
+      gosub check_i2c_acknowledge
+      if i2cAck=1 then
+        SSPBUFbyte=DataWrite[dw]
+        gosub write_SSPBUF
+        if NrBytesWrite>(dw+1) then 
+          dw=dw+1
+          'hserout2 ["b'",dec i2cmode," "]
+        else
+          i2cdone[2]=1  
+          'hserout2 ["b",dec i2cmode," "]
+        endif 
+      endif
+    endif   
+    if i2cMode=3+NrBytesWrite then 'end transmission
+      gosub check_i2c_acknowledge
+      if i2cAck=1 then     
+        'i2cMode=0
+        T0CON.7=0       'stop timer0
+        err=0
+        i2ccont.bit0=1    'Start Reading now
+        i2cint=1
+        i2cmode=1
+        TMR0L=0
+        TMR0H=0  
+        T0CON.7=1  'timer 0 enabled     
+        dw=0
+        dr=0
+        ds=0
+        SSPCON2.0=1 'generate start condition
+        EnRec=0
+        i2cdone[3]=0
+        i2cdone[4]=0
+        phase=1        
+        'hserout2 ["c",dec i2cmode," "]
+      endif  
+    endif 
+  'wend
+  'if err=0 then
+  '  'hserout2 ["d",dec i2cmode," "]
+  '  gosub Read_i2c_p2
+  'endif      
+return
+
+Read_i2c_p2:
+  'while (i2cMode>0)  
+    i2cInt=0
+    if i2cMode=2 and i2cDone[3]=0  then 'shift out i2c control byte    
+      i2cDone[3]=1
+      'hserout2 ["A",dec i2cmode," "]
+      SSPBUFbyte=i2ccont
+      gosub write_SSPBUF        
+    endif
+    if i2cMode=3 and i2cDone[4]=0 then
+      gosub check_i2c_acknowledge
+      if i2cAck=1 then    
+        i2cDone[4]=1
+        'hserout2 ["B",dec i2cmode," "]      
+        SSPCON2.3=1    'enable receiving
+        i2cdone[5]=0
+        i2cdone[6]=1
+        i2cdone[7]=1
+        i2cdone[8]=1
+      endif         
+    endif           
+    if i2cMode=4+ds+dr and i2cdone[5]=0 then 'check acknowledge and receive data 
+      If EnRec=0 then
+        if SSPSTAT.0=1 then 'Buffer full
+          DataRead[ds]=SSPBUF
+          'hserout2 [" ds=",dec ds," Read=",dec DataRead[ds]," "]
+          ds=ds+1          
+          if NrBytesRead>ds then
+            'hserout2 ["C",dec i2cmode," "]
+            SSPCON2.5=0     'ACK, not NACK                    
+            SSPCON2.4=1     'Sent Ack
+            i2cdone[5]=1
+            i2cdone[6]=0
+            i2cdone[7]=1
+            i2cdone[8]=1            
+          else
+            'hserout2 ["C'",dec i2cmode," "]
+            i2cmode=i2cmode+1                      
+            SSPCON2.5=1     'NACK, not ACK          
+            SSPCON2.4=1     'Sent NAck
+            i2cdone[5]=1
+            i2cdone[6]=1
+            i2cdone[7]=0
+            i2cdone[8]=1          
+          endif  
+          EnRec=1                     
+        endif
+      endif
+    endif
+    if i2cMode=4+ds+dr and i2cdone[6]=0 then 'check acknowledge and receive data        
+      if EnRec=1 then
+        'hserout2 ["D",dec i2cmode," "]
+        SSPCON2.3=1    'enable receiving
+        EnRec=0
+        dr=dr+1
+        i2cdone[5]=0
+        i2cdone[6]=1
+        i2cdone[7]=1
+        i2cdone[8]=1                             
+      endif     
+    endif
+    if i2cMode=5+ds+dr and i2cdone[7]=0 then
+      'hserout2 ["F",dec i2cmode," "]
+      SSPCON2.2=1    'Sent Stop
+      i2cdone[5]=1
+      i2cdone[6]=1
+      i2cdone[7]=1
+      i2cdone[8]=0          
+    endif    
+    if i2cMode=6+ds+dr and i2cdone[8]=0 then
+      'hserout2 ["G",dec i2cmode," "]
+      i2cMode=0
+      T0CON.7=0       'stop timer0
+      err=0
+      I2CBusy=0
+      gosub I2C_Action    
+    endif      
+'  wend  
+return
+
+Write_SSPBUF:
+  while (SSPSTAT.0=1)
+  wend
+  SSPBUF=SSPBUFbyte
+  if SSPCON1.7=1 then
+    SSPCON1.7=0
+     'hserout2 ["-A",dec i2cmode,"-",13,10]
+  endif
+return
+
+
+Read_eeprom:
+  if EepromOK=1 and I2CBusy=0 then
+    i2ccont=EEPROM_ADDRESS
+    NrBytesWrite=2        
+    gosub Read_i2c
+    if err=1 then
+      gosub Check_i2c_error
+      gosub Read_i2c
+    endif
+    'delete
+    'hserout2 [" Result eeprom=",dec DataRead[0]," ",dec DataRead[1]," ",dec DataRead[2],13,10]
+  endif  
+return
+
+'Write_eeprom:
+'  if EepromOK=1 and I2CBusy=0 then
+'    i2ccont=EEPROM_ADDRESS                
+'    gosub write_i2c
+'    pause 5
+'    'delete
+'    hserout2 ["eeprom write",13,10]
+'  endif  
+'return
+
+
+
+Read_i2c:
+  i2ccont.bit0=0    'First write, then read
+  i2cint=1
+  i2cmode=1
+  TMR0L=0
+  TMR0H=0  
+  T0CON.7=1  'timer 0 enabled
+  dw=0
+  SSPCON2.0=1 'generate start condition
+  i2cdone[1]=0
+  i2cdone[2]=0
+  phase=0
+  I2CBusy=1
+  while (i2cMode>0)   
+    if i2cMode=2 and i2cdone[1]=0 then 'shift out i2c control byte
+      i2cdone[1]=1
+      SSPBUFbyte=i2ccont
+      gosub write_SSPBUF      
+      'hserout2 ["a",dec i2cmode," "]
+    endif
+    if i2cMode=3+dw and i2cdone[2]=0 then 'check acknowledge and shift out additional write bytes   
+      gosub check_i2c_acknowledge
+      if i2cAck=1 then
+        SSPBUFbyte=DataWrite[dw]
+        gosub write_SSPBUF
+        if NrBytesWrite>(dw+1) then 
+          dw=dw+1
+        else
+          i2cdone[2]=1  
+        'hserout2 ["b",dec i2cmode," "]
+        endif 
+      endif
+    endif   
+    if i2cMode=3+NrBytesWrite then 'end transmission
+      gosub check_i2c_acknowledge
+      if i2cAck=1 then     
+        i2cMode=0
+        T0CON.7=0       'stop timer0
+        err=0
+        'hserout2 ["c",dec i2cmode," "]
+      endif  
+    endif 
+  wend
+  if err=0 then
+    'hserout2 ["d",dec i2cmode," "]
+    gosub Read_i2c_part2
+  endif      
+return
+
+Read_i2c_part2:
+  i2ccont.bit0=1    'Start Reading now
+  i2cint=1
+  i2cmode=1
+  TMR0L=0
+  TMR0H=0  
+  T0CON.7=1  'timer 0 enabled     
+  dw=0
+  dr=0
+  ds=0
+  SSPCON2.0=1 'generate start condition
+  EnRec=0
+  i2cdone[3]=0
+  i2cdone[4]=0
+  phase=1
+  while (i2cMode>0)  
+    i2cInt=0
+    if i2cMode=2 and i2cDone[3]=0  then 'shift out i2c control byte    
+      i2cDone[3]=1
+      'hserout2 ["A",dec i2cmode," "]
+      SSPBUFbyte=i2ccont
+      gosub write_SSPBUF        
+    endif
+    if i2cMode=3 and i2cDone[4]=0 then
+      gosub check_i2c_acknowledge
+      if i2cAck=1 then    
+        i2cDone[4]=1
+        'hserout2 ["B",dec i2cmode," "]      
+        SSPCON2.3=1    'enable receiving
+        i2cdone[5]=0
+        i2cdone[6]=1
+        i2cdone[7]=1
+        i2cdone[8]=1
+      endif         
+    endif           
+    if i2cMode=4+ds+dr and i2cdone[5]=0 then 'check acknowledge and receive data 
+      If EnRec=0 then
+        if SSPSTAT.0=1 then 'Buffer full
+          'x=SSPBUF
+          DataRead[ds]=SSPBUF
+          ds=ds+1          
+          if NrBytesRead>ds then
+            'hserout2 ["C",dec i2cmode," "]
+            SSPCON2.5=0     'ACK, not NACK                    
+            SSPCON2.4=1     'Sent Ack
+            i2cdone[5]=1
+            i2cdone[6]=0
+            i2cdone[7]=1
+            i2cdone[8]=1            
+          else
+            'hserout2 ["C'",dec i2cmode," "]
+            i2cmode=i2cmode+1                      
+            SSPCON2.5=1     'NACK, not ACK          
+            SSPCON2.4=1     'Sent NAck
+            i2cdone[5]=1
+            i2cdone[6]=1
+            i2cdone[7]=0
+            i2cdone[8]=1          
+          endif  
+          EnRec=1                     
+        endif
+      endif
+    endif
+    if i2cMode=4+ds+dr and i2cdone[6]=0 then 'check acknowledge and receive data        
+      if EnRec=1 then
+        'hserout2 ["D",dec i2cmode," "]
+        SSPCON2.3=1    'enable receiving
+        EnRec=0
+        dr=dr+1
+        i2cdone[5]=0
+        i2cdone[6]=1
+        i2cdone[7]=1
+        i2cdone[8]=1                             
+      endif     
+    endif
+    if i2cMode=5+ds+dr and i2cdone[7]=0 then
+      'hserout2 ["F",dec i2cmode," "]
+      SSPCON2.2=1    'Sent Stop
+      i2cdone[5]=1
+      i2cdone[6]=1
+      i2cdone[7]=1
+      i2cdone[8]=0          
+    endif    
+    if i2cMode=6+ds+dr and i2cdone[8]=0 then
+      'hserout2 ["G",dec i2cmode," "]
+      i2cMode=0
+      T0CON.7=0       'stop timer0
+      err=0
+      I2CBusy=0    
+    endif    
+    
+'    
+'    if i2cMode=5 then      
+'      SSPCON2.3=1    'enable receiving 
+'    endif      
+'    if i2cMode=6 then 'check acknowledge and receive data
+'      if SSPSTAT.0=1 then 'Buffer full 
+'        DataWrite[1]=SSPBUF
+'        SSPCON2.5=0     'ACK, not NACK
+'        SSPCON2.4=1     'Sent Ack          
+'      endif
+'    endif     
+'    if i2cMode=7 then      
+'      SSPCON2.3=1    'enable receiving
+'    endif      
+'    if i2cMode=8 then 'check acknowledge and receive data 
+'      if SSPSTAT.0=1 then 'Buffer full
+'        DataWrite[2]=SSPBUF
+'        SSPCON2.5=0     'ACK, not NACK          
+'        SSPCON2.4=1     'Sent Ack
+'      endif   
+'    endif
+'    if i2cMode=9 then      
+'      SSPCON2.3=1    'enable receiving 
+'    endif       
+'    if i2cMode=10 then 'check acknowledge and receive data
+'      if SSPSTAT.0=1 then 'Buffer full 
+'        DataWrite[3]=SSPBUF
+'        SSPCON2.5=1     'NACK, not ACK          
+'        SSPCON2.4=1     'Sent NAck 
+'      endif
+'    endif             
+'    if i2cMode=11 then 'sent stop   
+'      SSPCON2.2=1     
+'    endif
+'    if i2cMode=12 then 'end transmission 
+'      i2cMode=0
+'      T0CON.7=0       'stop timer0
+'      err=0               
+'    endif   
+  wend  
+return
+
+Check_I2c_Devices:
+  PCF8574OK=0
+  PCF8574i2ccont=PCF8574_ADDRESS
+  DataWrite[0]=255
+  i2ccont=PCF8574i2ccont
+  NrBytesWrite=1
+  gosub Write_i2c
+  gosub Led_Txd_rs232
+  if err=0 then
+    hserout2 ["PCF8574 found",13,10]
+    PCF8574OK=1  
+  else
+    PCF8574i2ccont=PCF8574A_ADDRESS  'if i2c address is not correct, take the other address
+    DataWrite[0]=255
+    i2ccont=PCF8574i2ccont
+    NrBytesWrite=1
+    gosub Write_i2c
+    if err=0 then
+      hserout2 ["PCF8574A found",13,10]
+      PCF8574OK=1      
+    endif          
+  endif
+  if PCF8574OK=0 then
+    hserout2 ["No PCF8574A found !!",13,10]
+  else
+    DataWrite[0]=36
+    i2ccont=PCF8574i2ccont
+    NrBytesWrite=1
+    gosub Write_i2c
+    pause 500
+    DataWrite[0]=255
+    i2ccont=PCF8574i2ccont
+    NrBytesWrite=1
+    gosub Write_i2c          
+  endif
+  DataWrite[0]=255
+  i2ccont=EEPROM_ADDRESS
+  NrBytesWrite=1
+  gosub Write_i2c
+  if err=0 then
+    EepromOK=1
+    hserout2 ["EEPROM found",13,10]
+  else
+    EepromOK=0
+    hserout2 ["EEPROM NOT found",13,10]
+  endif
+  DataWrite[0]=255
+  i2ccont=PAC_ADDRESS
+  NrBytesWrite=1
+  gosub Write_i2c
+  if err=0 then
+    PacOK=1
+    hserout2 ["PAC1710 found",13,10]
+  else
+    PacOK=0
+    hserout2 ["PAC1710 NOT found",13,10]
+  endif  
+        
+return
+
+
+Check_i2c_error:
+  if i2cerror>1 then
+    i2cerror=0
+    gosub Led_Txd_rs232
+    hserout2 ["Reset i2c ",dec I2CPointer," ",dec i2cCurrent,13,10]
+    PIE1.3=0                                'disable interrupt  
+    SSPCON1.5=0                             'disable i2c 
+       
+    TRISC=%10100111
+    high SDA
+    high SCL
+    pauseus 10
+    for i=0 to 8
+      pauseus 10
+      low SDA
+      pauseus 10
+      low SCL
+      pauseus 10
+      high SDA
+      pauseus 10
+      high SCL    
+    next i
+    TRISC=%10111111
+     
+    SSPADD.0=0  
+    SSPADD.1=0
+    SSPADD.2=0
+    SSPADD.3=1
+    SSPADD.4=1
+    SSPADD.5=0
+    SSPADD.6=0
+    SSPCON1=%00101000 'turn on MSSP and set for master mode i2c
+    SSPSTAT.7=1       'Slew rate off     
+    PIR1.3=0                                'clear interrupt flag
+    PIE1.3=1                                'enable interrupt    
+    i2cmode=0  
+    i2cInt=0
+    I2CBusy=0
+    pause 2   
+  endif
+return
+
+write_PCF8574:
+  if PCF8574OK=1 and I2CBusy=0 then      'PCF8574 is found
+    i2ccont=PCF8574i2ccont
+    NrBytesWrite=1
+    gosub Write_i2c
+  endif
+return
+
+Write_i2c:
+  i2ccont.bit0=0    'Write
+  i2cint=1
+  i2cmode=1
+  TMR0L=0
+  TMR0H=0  
+  T0CON.7=1  'timer 0 enabled
+  dw=0
+  i2cdone[0]=0
+  i2cdone[1]=0  
+  I2CBusy=1
+  SSPCON2.0=1 'generate start condition
+  'i2cmode[2]=0
+  while (i2cMode>0)   
+    if i2cMode=2 and i2cdone[0]=0 then 'shift out i2c control byte
+      i2cdone[0]=1        
+      SSPBUFbyte=i2ccont
+      gosub write_SSPBUF        
+    endif
+    if i2cMode=3+dw and i2cdone[1]=0 then 'check acknowledge and shift out additional write bytes       
+      gosub check_i2c_acknowledge
+      if i2cAck=1 then
+        SSPBUFbyte=DataWrite[dw]
+        gosub write_SSPBUF        
+        if NrBytesWrite>(dw+1) then 
+          dw=dw+1
+        else
+          i2cdone[1]=1  
+        'hserout2 ["b",dec i2cmode," "]
+        endif        
+      endif
+    endif   
+    if i2cMode=3+NrBytesWrite then 'sent stop 
+      gosub check_i2c_acknowledge
+      if i2cAck=1 then
+        SSPCON2.2=1 
+      endif             
+    endif
+    if i2cMode=4+NrBytesWrite then 'end transmission 
+      i2cMode=0
+      T0CON.7=0       'stop timer0
+      err=0
+      I2CBusy=0
+    endif 
+  wend         
+return
+
+
+check_i2c_acknowledge:
+  if SSPCON2.6=0 then 'Acknowledge received from slave
+    i2cAck=1 'Acknowledge received
+    SSPCON2.6=1
+  else
+    i2cAck=0
+  endif 
+return
+   
+End
