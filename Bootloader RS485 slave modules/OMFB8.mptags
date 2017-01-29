@@ -1,0 +1,409 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.5.4	//
+!_TAG_REVISION_NAME	MCHPTags	//
+!_TAG_REVISION_VERSION	6.0.1	//
+ADDR	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	42;"	v	line:42
+AppHighIntVector::(0x4008)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	68;"	d	line:68	file:
+AppLowIntVector::(0x4018)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	83;"	d	line:83	file:
+BIG_ENDIAN	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	70;"	d	line:70
+BLOCK_SIZE::0x40	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	22;"	d	line:22
+BLVERSION_MAJOR::1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	150;"	d	line:150	file:
+BLVERSION_MINOR::1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	151;"	d	line:151	file:
+BOOL	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	15;"	t	line:15
+BOOLEAN	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	13;"	g	line:13
+BOOLEAN	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	13;"	t	line:13
+BUTTON::PORTBbits.RB1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	123;"	d	line:123	file:
+BUTTON_TRIS::TRISBbits.TRISB1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	122;"	d	line:122	file:
+ButtonCounter	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	173;"	l	line:173
+COMM_BAUDRATE::115200	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	11;"	d	line:11
+COMM_UART_SEL::1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	14;"	d	line:14
+COMPILER_HITECH_PICC18	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	68;"	d	line:68
+COMPILER_MPLAB_C18	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	61;"	d	line:61
+COMPILER_MPLAB_C30	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	72;"	d	line:72
+COMPILER_MPLAB_C30	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	76;"	d	line:76
+COMPILER_MPLAB_C30	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	80;"	d	line:80
+COMPILER_MPLAB_C30	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	84;"	d	line:84
+COMPILER_MPLAB_C30	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	88;"	d	line:88
+COMPILER_MPLAB_C30	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	92;"	d	line:92
+COMPILER_MPLAB_C30	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	95;"	d	line:95
+COMPILER_MPLAB_C32	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	109;"	d	line:109
+CONSOLE_STREAM_SIZE::1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.h	8;"	d	line:8
+CONS_BAUDRATE::115200	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.h	7;"	d	line:7
+CONS_TRMTDONE::TXSTA1bits.TRMT	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	39;"	d	line:39
+CONS_TRMTDONE::TXSTA2bits.TRMT	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	27;"	d	line:27
+CONS_TXREG::TXREG1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	37;"	d	line:37
+CONS_TXREG::TXREG2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	25;"	d	line:25
+CRC	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	526;"	l	line:526
+CRC	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	554;"	l	line:554
+CRC2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	527;"	l	line:527
+CRC2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	555;"	l	line:555
+CS_begin	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	8;"	v	line:8
+CS_end	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	9;"	v	line:9
+CS_read	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	11;"	v	line:11
+CS_write	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	12;"	v	line:12
+CalcCheck	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	578;"	f	line:578	signature:(unsigned32 ProgramStart,unsigned32 ProgramStop)
+CalcCheck	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	99;"	p	line:99	file:	signature:(unsigned32 ProgramStart,unsigned32 ProgramStop)
+CalculateAndSaveCRC	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	108;"	p	line:108	file:	signature:(void)
+CalculateAndSaveCRC	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	553;"	f	line:553
+CheckButton	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	104;"	p	line:104	file:	signature:(void)
+CheckButton	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	510;"	f	line:510
+ClrWdt::(WDTCONSET=_WDTCON_WDTCLR_MASK	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	189;"	d	line:189
+ClrWdt::asm("CLRWDT");	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	168;"	d	line:168
+ClrWdt::{__asm__volatile("clrwdt");}	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	101;"	d	line:101
+CommCRCCheck	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	418;"	f	line:418	signature:(unsigned8 place)
+ConfigWordsSectionLength::14	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	19;"	d	line:19
+ConfigWordsStartAddress::0x300000	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	18;"	d	line:18
+ConsoleStream	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	6;"	v	line:6
+ConsoleTask	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	171;"	f	line:171
+ConsoleTask	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.h	15;"	p	line:15	signature:(void)
+DBGPRINTF::(...)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	80;"	d	line:80
+DBGPRINTF::(...)printf(##__VA_ARGS__)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	78;"	d	line:78
+DEVICE_ID_DEVID_MASK::0xFFE0	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	27;"	d	line:27
+DEVICE_ID_REVISION_MASK::0x001F	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	26;"	d	line:26
+DefineProgramMemorySize	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	43;"	p	line:43	signature:(void)
+DefineProgramMemorySize	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	786;"	f	line:786	signature:(void)
+Delay100us	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	64;"	p	line:64	signature:(unsigned16 x)
+Delay100us	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	46;"	f	line:46	signature:(unsigned16 x)
+Delay100uss	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	287;"	f	line:287	signature:(unsigned16 x)
+DelayMs	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	65;"	p	line:65	signature:(unsigned16 ms)
+DelayMs	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	57;"	f	line:57	signature:(unsigned16 ms)
+EEPROM_ADDR_ADDR::1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	24;"	d	line:24	file:
+EEPROM_ADDR_CRC::68	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	31;"	d	line:31	file:
+EEPROM_ADDR_FLASHMODE::74	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	35;"	d	line:35	file:
+EEPROM_ADDR_FW_version_builtnr::67	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	29;"	d	line:29	file:
+EEPROM_ADDR_FW_version_major::65	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	27;"	d	line:27	file:
+EEPROM_ADDR_FW_version_minor::66	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	28;"	d	line:28	file:
+EEPROM_ADDR_HW_version::64	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	26;"	d	line:26	file:
+EEPROM_ADDR_START_ADDR::72	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	33;"	d	line:33	file:
+EEPROM_ADDR_STATUS::76	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	37;"	d	line:37	file:
+EEPROM_ADDR_TIME_IN_BOOT::75	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	36;"	d	line:36	file:
+ERROR_CMD_NOT_RECOGNIZED	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	135;"	e	line:135	file:
+ERROR_CRC_NOK	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	138;"	e	line:138	file:
+ERROR_FORMAT_NOK	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	137;"	e	line:137	file:
+ERROR_MESSAGES	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	141;"	v	line:141
+ERROR_OUT_OF_BOUNCE	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	136;"	e	line:136	file:
+ERROR_PROG_CRC_NOK	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	139;"	e	line:139	file:
+EndCode::(PROG_NUM_OF_BLOCKS*BLOCK_SIZE	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	42;"	d	line:42	file:
+Erase	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	35;"	p	line:35	signature:(unsigned16 Page)
+Erase	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	667;"	f	line:667	signature:(unsigned16 Page)
+FALSE	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	13;"	e	line:13	enum:BOOLEAN
+FALSE::0	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	117;"	d	line:117
+FAR	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	187;"	d	line:187
+FAR::__attribute__((far))	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	180;"	d	line:180
+FAR::far	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	156;"	d	line:156
+FlashMode	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	172;"	l	line:172
+FlushConsole	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	181;"	f	line:181
+FlushConsole	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.h	16;"	p	line:16	signature:(void)
+GetFWVersionAndStatus	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	402;"	f	line:402	signature:(void)
+GetInstructionClock::(GetSystemClock/4)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	61;"	d	line:61
+GetPeripheralClock::GetInstructionClock	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	62;"	d	line:62
+GetSystemClock::(40000000ul)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	60;"	d	line:60
+HB	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	72;"	m	line:72	struct:_t_unsigned32_Masks::<anonymous>
+HW	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	24;"	m	line:24	struct:_t_uReg32::<anonymous>
+HW	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	67;"	m	line:67	struct:_t_unsigned32_Masks::<anonymous>
+Idle::{__asm__volatile("pwrsav#1");}	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	103;"	d	line:103
+InitDebugUART	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	16;"	f	line:16
+InitDebugUART	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.h	14;"	p	line:14	signature:(void)
+LB	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	71;"	m	line:71	struct:_t_unsigned32_Masks::<anonymous>
+LED_PWR::PORTEbits.RE2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	126;"	d	line:126	file:
+LED_PWR_TRIS::TRISEbits.TRISE2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	125;"	d	line:125	file:
+LED_STAT::PORTEbits.RE1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	129;"	d	line:129	file:
+LED_STAT_TRIS::TRISEbits.TRISE1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	128;"	d	line:128	file:
+LITTLE_ENDIAN	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	67;"	d	line:67
+LSB	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	51;"	m	line:51	struct:_t_unsigned16_Masks::<anonymous>
+LSB::(a)((a).v[0])	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	114;"	d	line:114
+LW	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	23;"	m	line:23	struct:_t_uReg32::<anonymous>
+LW	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	66;"	m	line:66	struct:_t_unsigned32_Masks::<anonymous>
+MB	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	74;"	m	line:74	struct:_t_unsigned32_Masks::<anonymous>
+MODE_APP_CHALLENGE::4	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	96;"	d	line:96	file:
+MSB	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	52;"	m	line:52	struct:_t_unsigned16_Masks::<anonymous>
+MSB::(a)((a).v[1])	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	115;"	d	line:115
+MaxPageToErase	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	783;"	v	line:783
+MaxPageToErase_128K::1023	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	11;"	d	line:11
+MaxPageToErase_32K::255	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	9;"	d	line:9
+MaxPageToErase_64K::511	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	10;"	d	line:10
+NOK::0	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	127;"	d	line:127
+NO_ERROR	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	134;"	e	line:134	file:
+Nop::__builtin_nop	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	100;"	d	line:100
+Nop::asm("NOP");	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	167;"	d	line:167
+Nop::asm("nop")	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	194;"	d	line:194
+OK::1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	126;"	d	line:126
+PARAM_FLASH_BASE_ADD::0x1FC0	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	24;"	d	line:24
+PARAM_FLASH_PAGE::63	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	25;"	d	line:25
+PROCESS_SEND::1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	146;"	d	line:146	file:
+PROG_NUM_OF_BLOCKS::0x180	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	23;"	d	line:23
+PTR_BASE::unsignedlong	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	123;"	d	line:123
+PTR_BASE::unsignedshort	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	126;"	d	line:126
+PTR_BASE::unsignedshort	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	129;"	d	line:129
+PTR_BASE::unsignedshort	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	132;"	d	line:132
+Print	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	146;"	f	line:146	signature:(char* ptr,char blocking)
+Print	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.h	11;"	p	line:11	signature:( char* text,char blocking)
+PrintROM	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	120;"	f	line:120	signature:(rom char* text,char blocking)
+PrintROM	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.h	10;"	p	line:10	signature:(rom char* text,char blocking)
+ProcessData	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	107;"	p	line:107	file:	signature:(void)
+ProcessData	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	442;"	f	line:442
+Processing	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	143;"	v	line:143
+ProgramMemStart::(StartPageToErase*BLOCK_SIZE)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	31;"	d	line:31
+ProgramMemStop	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	784;"	v	line:784
+ProgramMemStop_128K::0x020000	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	15;"	d	line:15
+ProgramMemStop_32K::0x008000	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	13;"	d	line:13
+ProgramMemStop_64K::0x010000	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	14;"	d	line:14
+PutCh	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	280;"	f	line:280	signature:(unsigned8 ch)
+READ::1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	123;"	d	line:123
+RECV::0	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	145;"	d	line:145	file:
+RECV_ADDR1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	13;"	e	line:13	file:
+RECV_ADDR2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	14;"	e	line:14	file:
+RECV_ADDR3	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	15;"	e	line:15	file:
+RECV_ADDR4	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	16;"	e	line:16	file:
+RECV_CMD1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	17;"	e	line:17	file:
+RECV_CMD2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	18;"	e	line:18	file:
+RECV_DATA	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	19;"	e	line:19	file:
+RECV_Data	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	29;"	v	line:29
+RECV_START1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	11;"	e	line:11	file:
+RECV_START2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	12;"	e	line:12	file:
+RECV_STATES	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	24;"	v	line:24
+RECV_comm	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	39;"	v	line:39
+RECV_command	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	38;"	v	line:38
+ROM::const	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	165;"	d	line:165
+ROM::const	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	175;"	d	line:175
+ROM::rom	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	160;"	d	line:160
+ROM_PTR_BASE::unsignedlong	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	124;"	d	line:124
+ROM_PTR_BASE::unsignedlong	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	133;"	d	line:133
+ROM_PTR_BASE::unsignedshort	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	127;"	d	line:127
+ROM_PTR_BASE::unsignedshortlong	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	130;"	d	line:130
+RS485_TXEN::PORTDbits.RD4	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	17;"	d	line:17
+RS485_TXEN_TRIS::TRISDbits.TRISD4	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	16;"	d	line:16
+ReadDeviceID	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	768;"	f	line:768	signature:(void)
+ReadEEPROM	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	100;"	p	line:100	file:	signature:(unsigned8 * ptrData, unsigned16 SourceAddr, unsigned16 num)
+ReadEEPROM	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	623;"	f	line:623	signature:(unsigned8 * ptrData, unsigned16 SourceAddr, unsigned16 num)
+ReadEEPROMByte	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	101;"	p	line:101	file:	signature:(unsigned16 addr)
+ReadEEPROMByte	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	642;"	f	line:642	signature:(unsigned16 addr)
+ReadPMn	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	37;"	p	line:37	signature:(unsigned8* ptrData, uReg32 SourceAddr, unsigned16 Num)
+ReadPMn	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	695;"	f	line:695	signature:(unsigned8 * ptrData, uReg32 SourceAddr, unsigned16 num)
+RecvData	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	116;"	f	line:116
+RecvData	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	65;"	p	line:65	signature:(void)
+Recv_crc	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	40;"	v	line:40
+Reset::SoftReset	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	188;"	d	line:188
+Reset::asm("RESET");	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	169;"	d	line:169
+Reset::asm("reset")	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	179;"	d	line:179
+ResetCounter	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	106;"	p	line:106	file:	signature:(void)
+ResetCounter	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	502;"	f	line:502
+SEND_ADDR	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	140;"	e	line:140	file:
+SaveBlock	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	330;"	f	line:330	signature:(void)
+SaveCRC	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	379;"	f	line:379	signature:(void)
+SaveVersion	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	373;"	f	line:373	signature:(void)
+SendData	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	299;"	f	line:299
+SendData	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	64;"	p	line:64	signature:(void)
+SendDataCount	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	36;"	v	line:36
+SendDataRaw	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	32;"	v	line:32
+Send_crc	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	41;"	v	line:41
+Sleep::{__asm__volatile("pwrsav#0");}	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	102;"	d	line:102
+StartBL::(EndCode)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	43;"	d	line:43	file:
+StartCode::0x00000000ul	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	41;"	d	line:41	file:
+StartPageToErase::128	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	8;"	d	line:8
+StartTickCounter	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	105;"	p	line:105	file:	signature:(void)
+StartTickCounter	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	491;"	f	line:491
+StayInBoot	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	171;"	l	line:171
+TIME_IN_BL_CHALLENGE_FAIL::10ul	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	114;"	d	line:114	file:
+TIME_IN_BL_IF_BUTTON_PRESSED::30ul	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	115;"	d	line:115	file:
+TRUE	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	13;"	e	line:13	enum:BOOLEAN
+TRUE::1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	118;"	d	line:118
+TotCount	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	122;"	l	line:122	file:
+UART_CREN::RCSTA1bits.CREN	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	31;"	d	line:31
+UART_CREN::RCSTA2bits.CREN	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	43;"	d	line:43
+UART_RXFERR::RCSTA1bits.FERR	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	30;"	d	line:30
+UART_RXFERR::RCSTA2bits.FERR	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	42;"	d	line:42
+UART_RXFLAG::PIR1bits.RC1IF	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	23;"	d	line:23
+UART_RXFLAG::PIR3bits.RC2IF	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	35;"	d	line:35
+UART_RXOERR::RCSTA1bits.OERR	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	29;"	d	line:29
+UART_RXOERR::RCSTA2bits.OERR	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	41;"	d	line:41
+UART_RXREG::RCREG1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	28;"	d	line:28
+UART_RXREG::RCREG2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	40;"	d	line:40
+UART_TRISRx::TRISCbits.TRISC7	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	22;"	d	line:22
+UART_TRISRx::TRISGbits.TRISG2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	34;"	d	line:34
+UART_TRISTx::TRISCbits.TRISC6	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	21;"	d	line:21
+UART_TRISTx::TRISGbits.TRISG1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	33;"	d	line:33
+UART_TRMTDONE::TXSTA1bits.TRMT	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	26;"	d	line:26
+UART_TRMTDONE::TXSTA2bits.TRMT	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	38;"	d	line:38
+UART_TXREG::TXREG1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	24;"	d	line:24
+UART_TXREG::TXREG2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	36;"	d	line:36
+UB	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	73;"	m	line:73	struct:_t_unsigned32_Masks::<anonymous>
+UnlockAndActivate	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	103;"	p	line:103	file:	signature:(void)
+UnlockAndActivate	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	744;"	f	line:744	signature:(void)
+UpdateStatus	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	386;"	f	line:386	signature:(void)
+UserIDAddress::0x200000	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	20;"	d	line:20
+UserIDSize::8	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	21;"	d	line:21
+VERBOSE_DEBUG	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	56;"	d	line:56
+Val	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	27;"	m	line:27	union:_t_uReg32
+Val	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	43;"	m	line:43	union:_t_unsigned8_Masks
+Val	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	48;"	m	line:48	union:_t_unsigned16_Masks
+Val	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	61;"	m	line:61	union:_t_unsigned32_Masks
+Val32	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	19;"	m	line:19	union:_t_uReg32
+ValidCode	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	524;"	f	line:524	signature:(void)
+ValidCode	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	98;"	p	line:98	file:	signature:(void)
+WAIT_TILL_RECV_RESET	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	20;"	e	line:20	file:
+WAIT_TILL_RECV_RESET2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	21;"	e	line:21	file:
+WAIT_TILL_RECV_RESET3	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	22;"	e	line:22	file:
+WAIT_TILL_RECV_RESET4	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	23;"	e	line:23	file:
+WDTTick	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	112;"	v	line:112
+WRITE::2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	124;"	d	line:124
+WriteCM	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	38;"	p	line:38	signature:(unsigned8* ptrData, uReg32 SourceAddr)
+WriteCM	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	720;"	f	line:720	signature:(unsigned8 *ptrData, uReg32 SourceAddr)
+WriteEEPROM	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	40;"	p	line:40	signature:(unsigned8* ptrData, uReg32 SourceAddr, unsigned16 size)
+WriteEEPROM	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	102;"	p	line:102	file:	signature:(unsigned8 *ptrData, unsigned16 SourceAddr, unsigned16 size)
+WriteEEPROM	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	649;"	f	line:649	signature:(unsigned8 *ptrData, unsigned16 SourceAddr, unsigned16 size)
+WritePM	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	36;"	p	line:36	signature:(unsigned8* ptrData, uReg32 SourceAddr)
+WritePM	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	676;"	f	line:676	signature:(unsigned8 * ptrData, uReg32 SourceAddr)
+_RS485_H	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	2;"	d	line:2
+__18CXX	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	66;"	d	line:66
+__C32__	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	107;"	d	line:107
+__COMPILER_H	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	56;"	d	line:56
+__CONSOLE_H	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.h	2;"	d	line:2
+__DATA_TYPES_H	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	2;"	d	line:2
+__DESIGNSTANDARDS_H	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	51;"	d	line:51
+__NONVOLATILEMEMORY_H	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\NonVolatileMemory.h	2;"	d	line:2
+__attribute__::(a)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	154;"	d	line:154
+_t_boolean	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	12;"	g	line:12
+_t_uReg32	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	17;"	u	line:17
+_t_unsigned16_Masks	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	46;"	u	line:46
+_t_unsigned32_Masks	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	59;"	u	line:59
+_t_unsigned8_Masks	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	30;"	u	line:30
+_user_putc	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	96;"	f	line:96	signature:(char c)
+addr	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	176;"	l	line:176
+addr	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	331;"	l	line:331
+addr	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	580;"	l	line:580
+b0	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	34;"	m	line:34	struct:_t_unsigned8_Masks::<anonymous>
+b0	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	78;"	m	line:78	struct:_t_unsigned32_Masks::<anonymous>
+b1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	35;"	m	line:35	struct:_t_unsigned8_Masks::<anonymous>
+b1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	79;"	m	line:79	struct:_t_unsigned32_Masks::<anonymous>
+b10	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	88;"	m	line:88	struct:_t_unsigned32_Masks::<anonymous>
+b11	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	89;"	m	line:89	struct:_t_unsigned32_Masks::<anonymous>
+b12	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	90;"	m	line:90	struct:_t_unsigned32_Masks::<anonymous>
+b13	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	91;"	m	line:91	struct:_t_unsigned32_Masks::<anonymous>
+b14	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	92;"	m	line:92	struct:_t_unsigned32_Masks::<anonymous>
+b15	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	93;"	m	line:93	struct:_t_unsigned32_Masks::<anonymous>
+b16	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	94;"	m	line:94	struct:_t_unsigned32_Masks::<anonymous>
+b17	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	95;"	m	line:95	struct:_t_unsigned32_Masks::<anonymous>
+b18	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	96;"	m	line:96	struct:_t_unsigned32_Masks::<anonymous>
+b19	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	97;"	m	line:97	struct:_t_unsigned32_Masks::<anonymous>
+b2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	36;"	m	line:36	struct:_t_unsigned8_Masks::<anonymous>
+b2	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	80;"	m	line:80	struct:_t_unsigned32_Masks::<anonymous>
+b20	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	98;"	m	line:98	struct:_t_unsigned32_Masks::<anonymous>
+b21	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	99;"	m	line:99	struct:_t_unsigned32_Masks::<anonymous>
+b22	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	100;"	m	line:100	struct:_t_unsigned32_Masks::<anonymous>
+b23	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	101;"	m	line:101	struct:_t_unsigned32_Masks::<anonymous>
+b24	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	102;"	m	line:102	struct:_t_unsigned32_Masks::<anonymous>
+b25	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	103;"	m	line:103	struct:_t_unsigned32_Masks::<anonymous>
+b26	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	104;"	m	line:104	struct:_t_unsigned32_Masks::<anonymous>
+b27	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	105;"	m	line:105	struct:_t_unsigned32_Masks::<anonymous>
+b28	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	106;"	m	line:106	struct:_t_unsigned32_Masks::<anonymous>
+b29	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	107;"	m	line:107	struct:_t_unsigned32_Masks::<anonymous>
+b3	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	37;"	m	line:37	struct:_t_unsigned8_Masks::<anonymous>
+b3	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	81;"	m	line:81	struct:_t_unsigned32_Masks::<anonymous>
+b30	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	108;"	m	line:108	struct:_t_unsigned32_Masks::<anonymous>
+b31	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	109;"	m	line:109	struct:_t_unsigned32_Masks::<anonymous>
+b4	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	38;"	m	line:38	struct:_t_unsigned8_Masks::<anonymous>
+b4	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	82;"	m	line:82	struct:_t_unsigned32_Masks::<anonymous>
+b5	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	39;"	m	line:39	struct:_t_unsigned8_Masks::<anonymous>
+b5	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	83;"	m	line:83	struct:_t_unsigned32_Masks::<anonymous>
+b6	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	40;"	m	line:40	struct:_t_unsigned8_Masks::<anonymous>
+b6	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	84;"	m	line:84	struct:_t_unsigned32_Masks::<anonymous>
+b7	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	41;"	m	line:41	struct:_t_unsigned8_Masks::<anonymous>
+b7	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	85;"	m	line:85	struct:_t_unsigned32_Masks::<anonymous>
+b8	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	86;"	m	line:86	struct:_t_unsigned32_Masks::<anonymous>
+b9	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	87;"	m	line:87	struct:_t_unsigned32_Masks::<anonymous>
+bits	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	110;"	m	line:110	union:_t_unsigned32_Masks
+bits	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	42;"	m	line:42	union:_t_unsigned8_Masks
+boolean	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	12;"	t	line:12
+buff	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	333;"	l	line:333
+byte	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	75;"	m	line:75	union:_t_unsigned32_Masks
+c	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	119;"	l	line:119
+counter	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	121;"	l	line:121	file:
+crc	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	302;"	l	line:302
+crc	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	420;"	l	line:420
+deviceID	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	770;"	l	line:770
+done	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	120;"	l	line:120
+dwBaud	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	18;"	l	line:18
+dwBaud	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	47;"	l	line:47
+error	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	26;"	v	line:26
+false	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	12;"	e	line:12	enum:_t_boolean
+false::0	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	121;"	d	line:121
+far	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	186;"	d	line:186
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	79;"	l	line:79
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	99;"	l	line:99
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	289;"	l	line:289
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	301;"	l	line:301
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	157;"	l	line:157
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	175;"	l	line:175
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	334;"	l	line:334
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	419;"	l	line:419
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	443;"	l	line:443
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	48;"	l	line:48
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	581;"	l	line:581
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	59;"	l	line:59
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	625;"	l	line:625
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	651;"	l	line:651
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	678;"	l	line:678
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	697;"	l	line:697
+i	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	722;"	l	line:722
+init_uart	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	45;"	f	line:45
+init_uart	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.h	46;"	p	line:46	signature:(void)
+interrupt_at_high_vector	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	73;"	f	line:73	signature:(void)
+interrupt_at_low_vector	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	87;"	f	line:87	signature:(void)
+interruptsEnabled	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	746;"	l	line:746
+j	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	100;"	l	line:100
+main	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	169;"	f	line:169	signature:(void)
+memcmppgm2ram::(a,b,c)memcmp(a,b,c)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	139;"	d	line:139
+memcpypgm2ram::(a,b,c)memcpy(a,b,c)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	141;"	d	line:141
+mode	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	174;"	l	line:174
+offset::0x3C40	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	522;"	d	line:522	file:
+pStatus	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	387;"	l	line:387
+page_to_erase	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	336;"	l	line:336
+persistent	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	185;"	d	line:185
+printBlock	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	156;"	f	line:156	signature:(unsigned8* data)
+printINT	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	76;"	f	line:76	signature:(unsigned a,char blocking)
+printINT	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.h	12;"	p	line:12	signature:(unsigned a,char blocking)
+printLONG	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	96;"	f	line:96	signature:(uReg32 a,char blocking)
+printLONG	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.h	13;"	p	line:13	signature:(uReg32 a,char blocking)
+ptr	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	121;"	l	line:121
+result	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	528;"	l	line:528
+result	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	643;"	l	line:643
+rom	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	166;"	d	line:166
+signed16	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	7;"	t	line:7
+signed32	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	9;"	t	line:9
+start::0x0000	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	521;"	d	line:521	file:
+state	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	118;"	l	line:118	file:
+status	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	153;"	v	line:153
+stepSize	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\RS485.c	290;"	l	line:290
+stepSize	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	49;"	l	line:49
+strcatpgm2ram::(a,b)strcat(a,b)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	147;"	d	line:147
+strchrpgm::(a,b)strchr(a,b)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	146;"	d	line:146
+strcmppgm2ram::(a,b)strcmp(a,b)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	140;"	d	line:140
+strcpypgm2ram::(a,b)strcpy(a,b)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	142;"	d	line:142
+strlenpgm::(a)strlen(a)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	145;"	d	line:145
+strncpypgm2ram::(a,b,c)strncpy(a,b,c)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	143;"	d	line:143
+strstrrampgm::(a,b)strstr(a,b)	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Compiler.h	144;"	d	line:144
+sum	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	582;"	l	line:582
+testprintf	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	570;"	f	line:570
+tickcounter	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	110;"	v	line:110
+true	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	12;"	e	line:12	enum:_t_boolean
+true::1	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	120;"	d	line:120
+uReg32	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	28;"	t	line:28
+unsigned16	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	6;"	t	line:6
+unsigned16_M	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	55;"	t	line:55
+unsigned24	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	10;"	t	line:10
+unsigned32	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	8;"	t	line:8
+unsigned32_M	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	111;"	t	line:111
+unsigned8	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	5;"	t	line:5
+unsigned8_M	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	44;"	t	line:44
+v	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	54;"	m	line:54	union:_t_unsigned16_Masks
+v	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	63;"	m	line:63	union:_t_unsigned32_Masks
+val	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	78;"	l	line:78
+val	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\Console.c	98;"	l	line:98
+version	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\main.c	148;"	v	line:148
+w	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	62;"	m	line:62	union:_t_unsigned32_Masks
+word	C:\Users\Niko\Desktop\HAS\Openmotics\Firmware\bootloader 18f\source\DataTypes.h	68;"	m	line:68	union:_t_unsigned32_Masks
