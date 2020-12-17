@@ -3,12 +3,6 @@
 #include "RS485.h"
 #include "Console.h"
 
-//toolsuite
-//C:\Program Files (x86)\Microchip\mplabc18\v3.47\mpasm\mpasmwin.exe
-//C:\Program Files (x86)\Microchip\mplabc18\v3.47\bin\mplink.exe
-//C:\Program Files (x86)\Microchip\mplabc18\v3.47\bin\mcc18.exe
-//C:\Program Files (x86)\Microchip\mplabc18\v3.47\bin\mplib.exe
-
 #if (defined(OUTPUT_MODULE) || defined(INPUT_MODULE) || defined(DIMMER_MODULE))
 	//file:///C:/Program%20Files%20(x86)/Microchip/xc8/v1.35/docs/chips/18f45k80.html
 	#pragma config FOSC = HS2			//clock in external mode with range including 10MHz   [HS2]INTIO2
@@ -232,19 +226,6 @@ unsigned8 version[3];
 
 unsigned8 status=0;
 
-/*
-void printBlock(unsigned8* data){
-	unsigned8 i;
-//	DBGPRINTF("\nblock:");
-	DBGPrintROM("\n",1);
-	for(i=0;i<64;i++){
-		DBGPrintROM(".",1);
-		DBGprintINT(data[i],1);
-	}	
-}
-*/
-
-
 void main(void)
 {
 	unsigned8 StayInBoot=false;
@@ -277,11 +258,6 @@ void main(void)
 	DBGprintBYTE(verb,1);
 	SetVerbose(verb);
 #endif
-
-//	addr.Val32=0ul;
-//	ReadPMn((unsigned8*)SendDataRaw, addr, 8u);
-//	printBlock(SendDataRaw);
-
 
 	Processing=false;
 
@@ -908,21 +884,3 @@ void UnlockAndActivate(void)
 	
 
 }	
-
-
-/*
-unsigned16_M	ReadDeviceID(void)
-{	
-	unsigned16_M	deviceID;
-	
-	//readout device ID, by setting the address and doing two post-increment reads (see the programming specification
-	TBLPTR = (unsigned24)(0x3FFFFE);
-	asm("tblrdpostinc");
-	deviceID.v[0] = TABLAT;
-	asm("tblrdpostinc");
-	deviceID.v[1] = TABLAT;
-	
-	return deviceID;
-}
-*/
-

@@ -23,9 +23,6 @@
 	#define PROG_NUM_OF_BLOCKS			0x39A	 	
 #endif
 
-
-//extern unsigned32 ReadLatch(unsigned16, unsigned16);
-//void EraseEEPROM(unsigned16 Page);
 void Erase(unsigned16 Page);
 void WritePM(unsigned8* ptrData, uReg32 SourceAddr);
 void ReadPMn(unsigned8* ptrData, uReg32 SourceAddr, unsigned16 Num);
@@ -33,9 +30,6 @@ void WriteCM(unsigned8* ptrData, uReg32 SourceAddr);
 #if defined(DEVICE_WITH_EEPROM)
 void WriteEEPROM(unsigned8* ptrData, uReg32 SourceAddr, unsigned16 size);
 #endif
-//void ReadDeviceID(void);
-
-
 
 //----------------------------------------------------------------------------------------------------------------------
 // SENSOR MODULE
@@ -75,17 +69,6 @@ void DelayMs(unsigned16 ms);
 #ifndef LITTLE_ENDIAN
 	#define BIG_ENDIAN
 #endif
-
-
-
-/*
-#ifndef VERBOSE_DEBUG
-	#define DBGPRINTF(...)
-#else
-//	#define DBGPRINTF(format, ...)	printf(format, ##__VA_ARGS__)
-    #define DBGPRINTF(...)			printf(##__VA_ARGS__)
-#endif
-*/
 
 #endif
 

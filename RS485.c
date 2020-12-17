@@ -77,21 +77,12 @@ void init_uart()
 	RS485_TXEN_TRIS	= 0;
 	RS485_TXEN		= 0;
 
-//	delay_ms(20);
-	#if COMM_UART_SEL == 2
-	stdout = _H_USART;
-	#else
-	//stdout = _H_USER;
-	#endif
-
 	SendDataCount=0;
 
 //	COMMRXWDTMR_Configure();
 }
 
-
-#if defined(VERBOSE_DEBUG) && (COMM_UART_SEL == 1)
-void _user_putc(char c)
+void putch(char c)
 {
 	// This function is responsible for sending one character out to your USART2
 	// (or whatever output device you might have, such as LCD, so that you can use DBGPRINTF()
@@ -103,7 +94,6 @@ void _user_putc(char c)
 	TXREG1 = c;
 	#endif
 }
-#endif
 
 
 

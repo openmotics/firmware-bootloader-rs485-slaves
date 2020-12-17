@@ -13,8 +13,6 @@ char* CS_write 	= &ConsoleStream[0];
 #define DONT_PRINT_DEBUG 255
 unsigned8 verbose = 1;
 
-//char text[10];
-
 void SetVerbose(unsigned8 verb){
 	verbose = verb;
 }
@@ -71,35 +69,6 @@ void ConsoleTask(){
 }
 #endif
 
-
-
-
-/*
-void printer(unsigned long a){
-
-	while(CONS_TRMT==0){}
-		CONS_TXREG=(a%1000000000)/100000000+48; 
-	while(CONS_TRMT==0){}
-		CONS_TXREG=(a%100000000)/10000000+48; 
-	while(CONS_TRMT==0){}
-		CONS_TXREG=(a%10000000)/1000000+48; 
-	while(CONS_TRMT==0){}
-		CONS_TXREG=(a%1000000)/100000+48; 
-	while(CONS_TRMT==0){}
-		CONS_TXREG=(a%100000)/10000+48; 
-	while(CONS_TRMT==0){}
-		CONS_TXREG=(a%10000)/1000+48; 
-	while(CONS_TRMT==0){}
-		CONS_TXREG=(a%1000)/100+48; 
-	while(CONS_TRMT==0){}
-		CONS_TXREG=(a%100)/10+48; 
-	while(CONS_TRMT==0){}
-		CONS_TXREG=(a%10)+48; 
-	while(CONS_TRMT==0){}
-		CONS_TXREG='\n';
-}
-
-*/
 
 void DBGprintINT(unsigned a,char blocking){
 /*
