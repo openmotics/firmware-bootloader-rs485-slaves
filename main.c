@@ -894,7 +894,6 @@ void UnlockAndActivate(void)
 
 	INTCONbits.GIE = 0;		//Make certain interrupts disabled for unlock process.
 	
-	_asm
 	//Now unlock sequence to set WR (make sure interrupts are disabled before executing this)
 	asm("MOVLW 0x55");
 	asm("MOVWF EECON2");
