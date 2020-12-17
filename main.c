@@ -1,5 +1,4 @@
 #include "NonVolatileMemory.h"
-#include "Compiler.h"
 #include "DataTypes.h"
 #include "RS485.h"
 #include "Console.h"
@@ -95,13 +94,12 @@
 
 void Delay100us(unsigned16 x) 
 {
-	unsigned16 i;														
-	unsigned8 stepSize = (unsigned8)(GetInstructionClock()/100000);			
-	for (i=0; i<x; i++) 
-	{											
-		Delay10TCYx(stepSize);										
-	}			
-} 
+	unsigned16 i;
+	for (i=0; i<x; i++)
+	{
+		_delay(STEP_SIZE);
+	}
+}
 
 
 void DelayMs(unsigned16 ms)
@@ -122,9 +120,9 @@ void DelayMs(unsigned16 ms)
 #pragma code high_vector=0x08
 void interrupt_at_high_vector(void)
 {
-	//_asm CALL AppHighIntVector,0 _endasm
-	_asm GOTO AppHighIntVector _endasm
- 	
+	//asm("CALL AppHighIntVector,0");
+	asm("GOTO AppHighIntVector");
+
 //	(*fpJumpToAppHighInt)();
 }
 #pragma code
@@ -136,8 +134,8 @@ void interrupt_at_high_vector(void)
 #pragma code low_vector=0x18
 void interrupt_at_low_vector(void)
 {
-	//_asm CALL AppLowIntVector,0 _endasm
-	_asm GOTO AppLowIntVector _endasm
+	//asm("CALL AppLowIntVector,0");
+	asm("GOTO AppLowIntVector");
 //	(*fpJumpToAppLowInt)();
 }
 #pragma code
@@ -434,17 +432,17 @@ void main(void)
 	WDTCONbits.SWDTEN = 1;
 	ClrWdt();
 
-#if defined(OUTPUT_MODULE)	
-	_asm goto 0x6678 _endasm		//the end.
+#if defined(OUTPUT_MODULE)
+	asm("goto 0x6678");		//the end.
 #endif
-#if defined(INPUT_MODULE)	
-	_asm goto 0x6678 _endasm		//the end.
+#if defined(INPUT_MODULE)
+	asm("goto 0x6678");		//the end.
 #endif
-#if defined(DIMMER_MODULE)	
-	_asm goto 0x6678 _endasm		//the end.
+#if defined(DIMMER_MODULE)
+	asm("goto 0x6678");		//the end.
 #endif
-#if defined(CAN_CONTROL_MODULE)	
-	_asm goto 0xE678 _endasm		//the end.
+#if defined(CAN_CONTROL_MODULE)
+	asm("goto 0xE678");		//the end.
 #endif
 
 }
@@ -550,7 +548,7 @@ unsigned8 GetBLVersion(void){
 
 unsigned8 CommCRCCheck(unsigned8 place){
 	unsigned8 i=0;
-	unsigned16_M crc=0;
+	unsigned16_M crc={.Val=0};
 	if(RECV_Data[place]!='C')error=ERROR_FORMAT_NOK;
 	
 	for(i=0;i<place;i++){
@@ -833,11 +831,11 @@ void WritePM(unsigned8 * ptrData, uReg32 SourceAddr)
 	for(i = 0; i < (unsigned16)BLOCK_SIZE; i++)	//Load the programming latches
 	{
 		TABLAT = ptrData[i];
-		_asm tblwtpostinc _endasm
+		asm("tblwtpostinc");
 	}
 
-	_asm tblrdpostdec _endasm	//Do this instead of TBLPTR--; since it takes less code space.
-		
+	asm("tblrdpostdec");	//Do this instead of TBLPTR--; since it takes less code space.
+
 	EECON1 = 0b10100100;	//flash programming mode
 	UnlockAndActivate();
 
@@ -852,9 +850,7 @@ void ReadPMn(unsigned8 * ptrData, uReg32 SourceAddr, unsigned16 num)
 
 	for(i = 0; i < num; i++) 
 	{
-			_asm
-			tblrdpostinc
-			_endasm
+			asm("tblrdpostinc");
 
 	        //since 0x300004 and 0x300007 are not implemented we need to return 0xFF
 	        //  since the device reads 0x00 but the hex file has 0x00
@@ -900,12 +896,11 @@ void UnlockAndActivate(void)
 	
 	_asm
 	//Now unlock sequence to set WR (make sure interrupts are disabled before executing this)
-	MOVLW 0x55
-	MOVWF EECON2, 0
-	MOVLW 0xAA
-	MOVWF EECON2, 0
-	BSF EECON1, 1, 0		//Performs write
-	_endasm	
+	asm("MOVLW 0x55");
+	asm("MOVWF EECON2");
+	asm("MOVLW 0xAA");
+	asm("MOVWF EECON2");
+	asm("BSF EECON1, 1");		//Performs write
 
 	if (interruptsEnabled) INTCONbits.GIE = 1;
 	
@@ -923,9 +918,9 @@ unsigned16_M	ReadDeviceID(void)
 	
 	//readout device ID, by setting the address and doing two post-increment reads (see the programming specification
 	TBLPTR = (unsigned24)(0x3FFFFE);
-	_asm tblrdpostinc _endasm
+	asm("tblrdpostinc");
 	deviceID.v[0] = TABLAT;
-	_asm tblrdpostinc _endasm
+	asm("tblrdpostinc");
 	deviceID.v[1] = TABLAT;
 	
 	return deviceID;

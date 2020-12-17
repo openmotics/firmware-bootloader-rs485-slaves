@@ -1,3 +1,5 @@
+#include <xc.h>
+
 #ifndef __DATA_TYPES_H
 #define __DATA_TYPES_H
 
@@ -7,7 +9,7 @@ typedef unsigned short int	unsigned16;
 typedef signed int			signed16;
 typedef unsigned long		unsigned32;
 typedef signed long			signed32;
-typedef unsigned short long	unsigned24;
+typedef uint24_t	unsigned24;
 
 typedef enum _t_boolean { false = 0, true = 1 } boolean;
 typedef enum BOOLEAN { FALSE = 0, TRUE } BOOLEAN;

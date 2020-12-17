@@ -3,7 +3,6 @@
 
 #include "ModuleType.h"
 
-#include "Compiler.h"
 #include "DataTypes.h"
 
 
@@ -52,20 +51,21 @@ void WriteEEPROM(unsigned8* ptrData, uReg32 SourceAddr, unsigned16 size);
 //#define debug_cipher
 
 #if defined(OUTPUT_MODULE)	
-	#define GetSystemClock()		(40000000ul) 
+	#define SYSTEM_CLOCK		40000000ul
 #endif
 #if defined(INPUT_MODULE)	
-	#define GetSystemClock()		(40000000ul) 
+	#define SYSTEM_CLOCK		40000000ul
 #endif
 #if defined(DIMMER_MODULE)	
-	#define GetSystemClock()		(40000000ul) 
+	#define SYSTEM_CLOCK		40000000ul
 #endif
 #if defined(CAN_CONTROL_MODULE)	
-	#define GetSystemClock()		(40000000ul)	 	
+	#define SYSTEM_CLOCK		40000000ul
 #endif
 
-#define GetInstructionClock()	(GetSystemClock()/4)
-#define GetPeripheralClock()	GetInstructionClock()
+#define INSTRUCTION_CLOCK	SYSTEM_CLOCK / 4
+#define PERIPHERAL_CLOCK    INSTRUCTION_CLOCK
+#define STEP_SIZE           INSTRUCTION_CLOCK / 10000
 
 void Delay100us(unsigned16 x);
 void DelayMs(unsigned16 ms);

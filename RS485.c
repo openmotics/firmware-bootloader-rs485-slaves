@@ -1,8 +1,6 @@
-#include "Compiler.h"
 #include "DataTypes.h"
 #include <stdio.h>
 #include <string.h>
-#include <delays.h>
 #include "NonVolatileMemory.h"
 #include "RS485.h"
 
@@ -11,8 +9,8 @@ enum
 	RECV_START1,
 	RECV_START2,
 	RECV_ADDR1,
-	RECV_ADDR2, 
-	RECV_ADDR3, 
+	RECV_ADDR2,
+	RECV_ADDR3,
 	RECV_ADDR4,
 	RECV_CMD1,
 	RECV_CMD2,
@@ -45,8 +43,8 @@ unsigned8 ADDR[4];
 void init_uart()
 {
 	unsigned32_M dwBaud;
-	
-	dwBaud.Val = (GetSystemClock()/4)/COMM_BAUDRATE-1;
+
+	dwBaud.Val = (SYSTEM_CLOCK/4)/COMM_BAUDRATE-1;
 
 	#if (COMM_UART_SEL==1)
 
@@ -63,7 +61,7 @@ void init_uart()
 		BAUDCON2bits.BRG16 = 1;
 		TXSTA2bits.BRGH = 1;
 		SPBRG2 = dwBaud.v[0];
-		SPBRGH2 = dwBaud.v[1];	
+		SPBRGH2 = dwBaud.v[1];
 		TXSTA2bits.TXEN = 1;
 		TXSTA2bits.SYNC = 0;
 		RCSTA2bits.SPEN = 1;
@@ -78,12 +76,12 @@ void init_uart()
 
 	RS485_TXEN_TRIS	= 0;
 	RS485_TXEN		= 0;
-	
+
 //	delay_ms(20);
 	#if COMM_UART_SEL == 2
 	stdout = _H_USART;
 	#else
-	stdout = _H_USER;
+	//stdout = _H_USER;
 	#endif
 
 	SendDataCount=0;
@@ -95,7 +93,7 @@ void init_uart()
 #if defined(VERBOSE_DEBUG) && (COMM_UART_SEL == 1)
 void _user_putc(char c)
 {
-	// This function is responsible for sending one character out to your USART2 
+	// This function is responsible for sending one character out to your USART2
 	// (or whatever output device you might have, such as LCD, so that you can use DBGPRINTF()
 	#if COMM_UART_SEL == 1
 	while(!TXSTA2bits.TRMT);
@@ -109,7 +107,7 @@ void _user_putc(char c)
 
 
 
-		
+
 
 
 
@@ -119,14 +117,14 @@ unsigned8 RecvData()
 	unsigned8 c;
 	unsigned8 done = false;
 	static unsigned8 counter=0;
-	static unsigned8 TotCount = 0;	
+	static unsigned8 TotCount = 0;
 
 	if(UART_RXOERR == 1) //toggling CREN should be enough to reset the receiver after an overrun
 	{
 	//	mLED_1_On();
 		//DBGPRINTF("\n<COMM GetCommand> Receive overrun error! Clearing the flag and resetting...");
-		UART_CREN = 0;//UART_RXOERR = 0; 
-		Delay100TCYx(1);
+		UART_CREN = 0;//UART_RXOERR = 0;
+		_delay(100);
 		UART_CREN = 1;
 	//	mLED_1_Off();
 		return false;
@@ -158,45 +156,45 @@ unsigned8 RecvData()
 */
 		switch(state)
 		{
-			case RECV_START1: 
+			case RECV_START1:
 //				RECV_command=0xFF;
 				if (c=='S') state++;
 				break;
-			case RECV_START2: 
+			case RECV_START2:
 				if(c=='T')
 					state=RECV_ADDR1;
 				else
 					state=RECV_START1;
 				break;
-			case RECV_ADDR1: 
+			case RECV_ADDR1:
 				Recv_crc=c;
 				if(c==ADDR[0])
 					state=RECV_ADDR2;
 				else
 					state=RECV_START1;
-				break;		
-			case RECV_ADDR2: 
+				break;
+			case RECV_ADDR2:
 				Recv_crc+=c;
 				if(c==ADDR[1])
 					state=RECV_ADDR3;
 				else
 					state=RECV_START1;
-				break;	
-			case RECV_ADDR3: 
+				break;
+			case RECV_ADDR3:
 				Recv_crc+=c;
 				if(c==ADDR[2])
 					state=RECV_ADDR4;
 				else
 					state=RECV_START1;
-				break;	
-			case RECV_ADDR4: 
+				break;
+			case RECV_ADDR4:
 				Recv_crc+=c;
 				if(c==ADDR[3])
 					state=RECV_CMD1;
 				else
 					state=RECV_START1;
-				break;	
-			case RECV_CMD1: 
+				break;
+			case RECV_CMD1:
 				Recv_crc+=c;
 				RECV_comm = c;
 				state=RECV_CMD2;
@@ -219,32 +217,32 @@ unsigned8 RecvData()
 						TotCount = 7;
 						state=RECV_DATA;
 						break;
-					case 'D':	
+					case 'D':
 						counter=0;
-						TotCount = 69;	
+						TotCount = 69;
 						state=RECV_DATA;
 						break;
-					case 'E':	
+					case 'E':
 					case 'V':
 					case 'G':
 						counter=0;
-						TotCount = 3;	//only load crc	
+						TotCount = 3;	//only load crc
 						state=RECV_DATA;
 						break;
-					default:	
-						state=WAIT_TILL_RECV_RESET;	
-						break;					
+					default:
+						state=WAIT_TILL_RECV_RESET;
+						break;
 				}
 				break;
 			case RECV_DATA:
 				RECV_Data[counter++]=c;
 				if(counter<TotCount) break;
-				state=WAIT_TILL_RECV_RESET;	
+				state=WAIT_TILL_RECV_RESET;
 				break;
 
 			case WAIT_TILL_RECV_RESET:
 				if(c=='\r')	state=WAIT_TILL_RECV_RESET4;	//todo
-				break;	 
+				break;
 			case WAIT_TILL_RECV_RESET2:
 				if(c=='\n')
 					state=WAIT_TILL_RECV_RESET3;
@@ -261,14 +259,14 @@ unsigned8 RecvData()
 				if(c=='\n'){
 					state = RECV_START1;
 					done=true;
-				}	
+				}
 				else
 					state=WAIT_TILL_RECV_RESET;
 				break;
 			default:
 				state = RECV_START1;
 				break;
-		
+
 		}
 	}
  	return done;
@@ -277,22 +275,21 @@ unsigned8 RecvData()
 
 
 
-void PutCh(unsigned8 ch) 
+void PutCh(unsigned8 ch)
 {
 	while(!UART_TRMTDONE);
 	UART_TXREG = ch;
 	Send_crc+=ch;
 }
 
-void Delay100uss(unsigned16 x) 
+void Delay100uss(unsigned16 x)
 {
-	unsigned16 i;														
-	unsigned8 stepSize = (unsigned8)(GetInstructionClock()/100000);			
-	for (i=0; i<x; i++) 
-	{											
-		Delay10TCYx(stepSize);										
-	}			
-} 
+	unsigned16 i;
+	for (i=0; i<x; i++)
+	{
+		_delay(STEP_SIZE);
+	}
+}
 
 
 
@@ -300,13 +297,13 @@ void SendData()
 {
 	unsigned8 i=0;
 	unsigned16_M crc;
-	unsigned8 doubleloop=0;	
-	
+	unsigned8 doubleloop=0;
+
 	for (doubleloop=0;doubleloop<2;doubleloop++){
-	
+
 		UART_CREN = 0;
 		RS485_TXEN	= 1;
-	
+
 		PutCh('R');
 		PutCh('C');
 		Send_crc=0;
@@ -317,14 +314,14 @@ void SendData()
 		PutCh('F');
 		PutCh(RECV_command);
 		PutCh(error);
-	
-	
+
+
 		while(i<SendDataCount){
 			PutCh(SendDataRaw[i++]);
 		}
-		
+
 		crc.Val = Send_crc;
-	
+
 		PutCh('C');
 		PutCh(crc.MSB);
 		PutCh(crc.LSB);
@@ -332,9 +329,9 @@ void SendData()
 		PutCh('\n');
 		PutCh('\r');
 		PutCh('\n');
-	
-		while(!UART_TRMTDONE); 
-		RS485_TXEN	= 0;       
+
+		while(!UART_TRMTDONE);
+		RS485_TXEN	= 0;
 		UART_CREN = 1;
 		if(RECV_command!='E'){ //if not E, stop otherwise do a double loop
 			doubleloop=2;

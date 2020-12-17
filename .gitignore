@@ -1,1 +1,6 @@
 .idea
+/OMFB8.X/build/
+/OMFB8.X/nbproject/private/
+/OMFB8.X/nbproject/Makefile-*
+/OMFB8.X/nbproject/Package-*
+/OMFB8.X/dist/

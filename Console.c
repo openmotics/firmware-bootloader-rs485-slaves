@@ -1,5 +1,4 @@
 #include "Console.h"
-#include "Compiler.h"
 #include "RS485.h"
 #include "NonVolatileMemory.h"
 
@@ -35,7 +34,7 @@ void InitDebugUART(){
 	unsigned32_M dwBaud;
 
 
-	dwBaud.Val = (GetSystemClock()/4)/CONS_BAUDRATE-1;
+	dwBaud.Val = (SYSTEM_CLOCK/4)/CONS_BAUDRATE-1;
 
 	#if (COMM_UART_SEL!=1)
 
@@ -162,8 +161,8 @@ void DBGprintLONG(uReg32 a,char blocking){
 
 
 
-void DBGPrintROM(rom char* text,char blocking){
-	rom char* ptr = text;
+void DBGPrintROM(const char* text,char blocking){
+	const char* ptr = text;
 	if (verbose==DONT_PRINT_DEBUG) return;
 	if(blocking){
 		 while( *ptr)

@@ -25,7 +25,7 @@
 #endif
 */
 
-void DBGPrintROM(rom char* text,char blocking);
+void DBGPrintROM(const char* text,char blocking);
 void Print( char* text,char blocking);
 void DBGprintINT(unsigned a,char blocking);
 void DBGprintBYTE(unsigned8 a,char blocking);
