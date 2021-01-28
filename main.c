@@ -183,7 +183,11 @@ void main(void)
     LED_PWR_TRIS = 0;
     LED_STAT_TRIS = 0;
 
-    ReadEEPROM(ADDR, EEPROM_ADDR_ADDR, 4); // Read address
+    //ReadEEPROM(ADDR, EEPROM_ADDR_ADDR, 4); // Read address
+    ADDR[0] = 79;
+    ADDR[1] = 248;
+    ADDR[2] = 240;
+    ADDR[3] = 224;
     ReadEEPROM(version, EEPROM_ADDR_FW_version_major, 3); // Read version
 
     init_uart();
@@ -191,7 +195,7 @@ void main(void)
 
 #if defined(EEPROM_ADDR_VERBOSE)    
     ReadEEPROM(&verb, EEPROM_ADDR_VERBOSE , 1);
-    DBGprintBYTE(verb,1);
+    DBGPrintBYTE(verb,1);
     SetVerbose(verb);
 #endif
     
@@ -213,12 +217,11 @@ void main(void)
     Processing = false;
 
     DBGPrintROM("FLW ", 1);
-    /*if (ADDR[0] == 0 || ADDR[0] == 255) { // If no address is assigned, the device is not yet initialized, go to app but first calculate the crc.
+    if (ADDR[0] == 0 || ADDR[0] == 255) { // If no address is assigned, the device is not yet initialized, go to app but first calculate the crc.
         DBGPrintROM("A\n", 1);
         CalculateAndSaveCRC();
         Processing = false; // Dont wait in BL
-    }
-    else*/ if (FlashMode == MODE_APP_CHALLENGE) {
+    } else if (FlashMode == MODE_APP_CHALLENGE) {
         DBGPrintROM("C\n", 1);
         Processing = true;
         WDTTick = TIME_IN_BL_CHALLENGE_FAIL;
@@ -231,34 +234,34 @@ void main(void)
     }
     
     DBGPrintROM("WDT ", 1);
-    DBGprintLONG(WDTTick, 1);
+    DBGPrintLONG(WDTTick, 1);
     DBGPrintROM("\n", 1);
 
     WDTTick <<= 1; // Because the tick is every half second
     
     DBGPrintROM("BLV ", 1);
-    DBGprintBYTE(BLVERSION_MAJOR, 1);
+    DBGPrintBYTE(BLVERSION_MAJOR, 1);
     DBGPrintROM(".", 1);
-    DBGprintBYTE(BLVERSION_MINOR, 1);
+    DBGPrintBYTE(BLVERSION_MINOR, 1);
     DBGPrintROM("\nFWV ", 1);
-    DBGprintBYTE(version[0], 1);
+    DBGPrintBYTE(version[0], 1);
     DBGPrintROM(".", 1);
-    DBGprintBYTE(version[1], 1);
+    DBGPrintBYTE(version[1], 1);
     DBGPrintROM(".", 1);
-    DBGprintBYTE(version[2], 1);
+    DBGPrintBYTE(version[2], 1);
     DBGPrintROM("\nADR ", 1);
-    DBGprintBYTE(ADDR[0], 1);
+    DBGPrintBYTE(ADDR[0], 1);
     DBGPrintROM(".", 1);
-    DBGprintBYTE(ADDR[1], 1);
+    DBGPrintBYTE(ADDR[1], 1);
     DBGPrintROM(".", 1);
-    DBGprintBYTE(ADDR[2], 1);
+    DBGPrintBYTE(ADDR[2], 1);
     DBGPrintROM(".", 1);
-    DBGprintBYTE(ADDR[3], 1);
+    DBGPrintBYTE(ADDR[3], 1);
     DBGPrintROM("\n", 1);
   
     StartTickCounter();
 
-    DBGPrintROM("PNG", 1);
+    DBGPrintROM("PNG\n", 1);
     while(Processing){
         if (INTCONbits.TMR0IF == 1) {
             LED_PWR ^= 1;
@@ -277,17 +280,17 @@ void main(void)
                 }
                 break;
             case PROCESS_SEND:
-                DBGPrintROM("PSD B\n", 1);
+                DBGPrintROM("PSD\n", 1);
                 ProcessData();
                                 
-                DBGPrintROM("PSD M\n", 1);
-
                 if (error != ERROR_CMD_NOT_RECOGNIZED) {
                     tickcounter=0;
                 }
 
                 SendData();
-                DBGPrintROM("PSD E\n", 1);
+                DBGPrintROM("RTN ", 1);
+                DBGPrintBYTE(error, 1);
+                DBGPrintROM("\n", 1);
                 
             default:
                 mode=RECV;
@@ -421,8 +424,10 @@ unsigned8 CommCRCCheck(unsigned8 place) {
     }
     
     if (error != NO_ERROR) {
+        DBGPrintROM("CRC E\n", 1);
         return true;
     }
+    
     return false;
 }
 
@@ -435,11 +440,13 @@ void ProcessData() {
     }
 
     DBGPrintROM("RCV ", 1);
-    DBGprintBYTE(RECV_command, 1);
-    DBGPrintROM("[", 1);
+    DBGPrintCHR(RECV_command, 1);
+    DBGPrintROM(" [", 1);
     for (i = 0; i < 100; i++) {
-        DBGPrintROM(",", 1);
-        DBGprintBYTE(RECV_Data[i], 1);
+        if (i > 0) {
+            DBGPrintROM(",", 1);
+        }
+        DBGPrintBYTE(RECV_Data[i], 1);
     }
     DBGPrintROM("]\n", 1);
 
@@ -486,6 +493,9 @@ void ProcessData() {
             }
             Processing = 0;
             break;        
+        case 'R':
+            // Already in bootloader
+            break;
         default:    
             error = ERROR_CMD_NOT_RECOGNIZED;
             break;
@@ -528,13 +538,13 @@ unsigned8 ValidCode(void)
     CRC.Val[3] = CRC2.Val[0];
 
     DBGPrintROM("ECS ", 1);
-    DBGprintBYTE(CRC.Val[0], 1);
+    DBGPrintBYTE(CRC.Val[0], 1);
     DBGPrintROM(".", 1);
-    DBGprintBYTE(CRC.Val[1], 1);
+    DBGPrintBYTE(CRC.Val[1], 1);
     DBGPrintROM(".", 1);
-    DBGprintBYTE(CRC.Val[2], 1);
+    DBGPrintBYTE(CRC.Val[2], 1);
     DBGPrintROM(".", 1);
-    DBGprintBYTE(CRC.Val[3], 1);
+    DBGPrintBYTE(CRC.Val[3], 1);
     DBGPrintROM("\n", 1);
     
     return (CRC.Val32 == CalcCheck(StartCode+8,EndCode));
@@ -575,13 +585,13 @@ unsigned32 CalcCheck(unsigned32 ProgramStart, unsigned32 ProgramStop) {
 
     DBGPrintROM("CCS ", 1);
     addr.Val32 = sum;
-    DBGprintBYTE(addr.Val[0], 1);
+    DBGPrintBYTE(addr.Val[0], 1);
     DBGPrintROM(".", 1);
-    DBGprintBYTE(addr.Val[1], 1);
+    DBGPrintBYTE(addr.Val[1], 1);
     DBGPrintROM(".", 1);
-    DBGprintBYTE(addr.Val[2], 1);
+    DBGPrintBYTE(addr.Val[2], 1);
     DBGPrintROM(".", 1);
-    DBGprintBYTE(addr.Val[3], 1);
+    DBGPrintBYTE(addr.Val[3], 1);
     DBGPrintROM("\n", 1);
 
     return sum;

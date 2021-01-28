@@ -50,19 +50,26 @@ void InitDebugUART(){
 
 #endif
 
-void DBGprintBYTE(unsigned8 a,char blocking){
+void DBGPrintBYTE(unsigned8 a,char blocking){
     char str[4];
     sprintf(str, "%d", a);
     Print(str, blocking);
 }
 
-void DBGprintLONG(unsigned32 a,char blocking) {
+void DBGPrintLONG(unsigned32 a,char blocking) {
     char str[12];
     sprintf(str, "%d", a);
     Print(str, blocking);
 }
 
-void DBGPrintROM(const char* text,char blocking){
+void DBGPrintCHR(unsigned8 a, char blocking) {
+    char str[2];
+    str[0] = a;
+    str[1] = '\0';
+    Print(str, blocking);
+}
+
+void DBGPrintROM(const char* text,char blocking) {
     const char* ptr = text;
     if (verbose == DONT_PRINT_DEBUG) {
         return;

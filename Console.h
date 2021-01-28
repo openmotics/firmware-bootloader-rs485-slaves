@@ -10,10 +10,11 @@
 #define VERBOSE_DEBUG
 
 void DBGPrintROM(const char* text,char blocking);
+void DBGPrintINT(unsigned a,char blocking);
+void DBGPrintBYTE(unsigned8 a,char blocking);
+void DBGPrintCHR(unsigned8 a, char blocking);
+void DBGPrintLONG(unsigned32 a,char blocking);
 void Print( char* text,char blocking);
-void DBGprintINT(unsigned a,char blocking);
-void DBGprintBYTE(unsigned8 a,char blocking);
-void DBGprintLONG(unsigned32 a,char blocking);
 void InitDebugUART(void);
 
 #endif
