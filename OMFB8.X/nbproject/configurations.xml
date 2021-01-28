@@ -161,7 +161,7 @@
       <XC8-config-global>
         <property key="advanced-elf" value="false"/>
         <property key="gcc-opt-driver-new" value="false"/>
-        <property key="gcc-opt-std" value="${gcc-opt-std.default}"/>
+        <property key="gcc-opt-std" value="-std=c99"/>
         <property key="gcc-output-file-format" value="dwarf-3"/>
         <property key="omit-pack-options" value="false"/>
         <property key="omit-pack-options-new" value="1"/>
@@ -180,7 +180,7 @@
         <targetDevice>PIC18F46K80</targetDevice>
         <targetHeader></targetHeader>
         <targetPluginBoard></targetPluginBoard>
-        <platformTool>noID</platformTool>
+        <platformTool>PICkit3PlatformTool</platformTool>
         <languageToolchain>XC8</languageToolchain>
         <languageToolchainVersion>2.31</languageToolchainVersion>
         <platform>2</platform>
@@ -301,7 +301,7 @@
       <XC8-config-global>
         <property key="advanced-elf" value="false"/>
         <property key="gcc-opt-driver-new" value="false"/>
-        <property key="gcc-opt-std" value="${gcc-opt-std.default}"/>
+        <property key="gcc-opt-std" value="-std=c99"/>
         <property key="gcc-output-file-format" value="dwarf-3"/>
         <property key="omit-pack-options" value="false"/>
         <property key="omit-pack-options-new" value="1"/>
