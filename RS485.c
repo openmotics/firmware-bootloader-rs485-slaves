@@ -89,7 +89,7 @@ unsigned8 RecvData() {
     static unsigned8 TotCount = 0;
 
     if (UART_RXOERR == 1) { // Toggling CREN should be enough to reset the receiver after an overrun
-        UART_CREN = 0;//UART_RXOERR = 0;
+        UART_CREN = 0; //UART_RXOERR = 0;
         _delay(100);
         UART_CREN = 1;
         return false;
@@ -165,7 +165,7 @@ unsigned8 RecvData() {
                     case 'N':
                         counter = 0;
                         TotCount = 6;
-                        state =RECV_DATA;
+                        state = RECV_DATA;
                         break; 
                     case 'C':
                         counter = 0;
@@ -178,6 +178,7 @@ unsigned8 RecvData() {
                         state = RECV_DATA;
                         break;
                     case 'E':
+                    case 'R':
                     case 'V':
                     case 'G':
                         counter = 0;

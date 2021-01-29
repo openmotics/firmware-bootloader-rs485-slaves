@@ -15,7 +15,6 @@
     #pragma config CP1 = OFF
     #pragma config CP2 = OFF
     #pragma config CP3 = OFF
-    // #pragma config SOSCSEL = DIG // [3]
     #pragma config CPD = OFF     // EEPROM read protect
 #endif
 #if (defined(CAN_CONTROL_MODULE))
@@ -31,7 +30,6 @@
     #pragma config CP1 = OFF
     #pragma config CP2 = OFF
     #pragma config CP3 = OFF
-    // #pragma config SOSCSEL = DIG // [3]
     #pragma config CPD = OFF     // EEPROM read protect
 #endif
 
@@ -47,7 +45,6 @@
     #define EEPROM_ADDR_TIME_IN_BOOT 75       // Time to wait till timeout.
     #define EEPROM_ADDR_STATUS 76             // Status of code with crc
 #endif
-
 #if (defined(CAN_CONTROL_MODULE))
     #define EEPROM_ADDR_ADDR 309u               // 4 bytes with the address used in the program itself
     #define EEPROM_ADDR_HW_version 320u         // Used to print this info when starting up.
@@ -59,7 +56,6 @@
     #define EEPROM_ADDR_FLASHMODE 329u          // Challenge for app to reset
     #define EEPROM_ADDR_TIME_IN_BOOT 330u       // Time to wait till timeout.
     #define EEPROM_ADDR_STATUS 331u             // Status of code with crc
-    #define EEPROM_ADDR_VERBOSE 0x014Cu         // When=255 then Bootloader UART debug information is disabled (See also Memory Model page0/Byte94)
 #endif
 
 #define StartCode 0x00000000ul
@@ -177,98 +173,73 @@ void main(void)
     uReg32 addr;
 
     INTCONbits.GIE = 0;
-
     WDTCONbits.SWDTEN = 0;
 
     LED_PWR_TRIS = 0;
     LED_STAT_TRIS = 0;
 
-    //ReadEEPROM(ADDR, EEPROM_ADDR_ADDR, 4); // Read address
-    ADDR[0] = 79;
-    ADDR[1] = 248;
-    ADDR[2] = 240;
-    ADDR[3] = 224;
+    ReadEEPROM(ADDR, EEPROM_ADDR_ADDR, 4); // Read address
     ReadEEPROM(version, EEPROM_ADDR_FW_version_major, 3); // Read version
 
     init_uart();
     InitDebugUART();
-
-#if defined(EEPROM_ADDR_VERBOSE)    
-    ReadEEPROM(&verb, EEPROM_ADDR_VERBOSE , 1);
-    DBGPrintBYTE(verb,1);
-    SetVerbose(verb);
-#endif
     
-    DBGPrintROM("\n\n-- BL ", 1);
-#if defined(OUTPUT_MODULE)    
-    DBGPrintROM("OMRY", 1);
-#endif
-#if defined(INPUT_MODULE)    
-    DBGPrintROM("OMIT", 1);
-#endif
-#if defined(DIMMER_MODULE)    
-    DBGPrintROM("OMDL", 1);
-#endif
-#if defined(CAN_CONTROL_MODULE)    
-    DBGPrintROM("OMCL", 1);
-#endif
-    DBGPrintROM(" 2021 --\n", 1);
+    DBGPrintSTR("\n\n-- BL ", 1);
+    #if defined(OUTPUT_MODULE)    
+        DBGPrintSTR("RY", 1);
+    #endif
+    #if defined(INPUT_MODULE)    
+        DBGPrintSTR("IT", 1);
+    #endif
+    #if defined(DIMMER_MODULE)    
+        DBGPrintSTR("DL", 1);
+    #endif
+    #if defined(CAN_CONTROL_MODULE)    
+        DBGPrintSTR("CL", 1);
+    #endif
+    DBGPrintSTR("\n", 1);
 
     Processing = false;
 
-    DBGPrintROM("FLW ", 1);
     if (ADDR[0] == 0 || ADDR[0] == 255) { // If no address is assigned, the device is not yet initialized, go to app but first calculate the crc.
-        DBGPrintROM("A\n", 1);
+        DBGPrintSTR("FL A\n", 1);
         CalculateAndSaveCRC();
         Processing = false; // Dont wait in BL
     } else if (FlashMode == MODE_APP_CHALLENGE) {
-        DBGPrintROM("C\n", 1);
+        DBGPrintSTR("FL B\n", 1);
         Processing = true;
         WDTTick = TIME_IN_BL_CHALLENGE_FAIL;
     } else {
-        DBGPrintROM("D\n", 1);
+        DBGPrintSTR("FL C\n", 1);
         WDTTick = ReadEEPROMByte(EEPROM_ADDR_TIME_IN_BOOT);
         if (WDTTick > 0ul) {
             Processing = true;
         }
     }
     
-    DBGPrintROM("WDT ", 1);
+    DBGPrintSTR("WT ", 1);
     DBGPrintLONG(WDTTick, 1);
-    DBGPrintROM("\n", 1);
-
-    WDTTick <<= 1; // Because the tick is every half second
-    
-    DBGPrintROM("BLV ", 1);
+    DBGPrintSTR("\nBV ", 1);
     DBGPrintBYTE(BLVERSION_MAJOR, 1);
-    DBGPrintROM(".", 1);
+    DBGPrintSTR(" ", 1);
     DBGPrintBYTE(BLVERSION_MINOR, 1);
-    DBGPrintROM("\nFWV ", 1);
-    DBGPrintBYTE(version[0], 1);
-    DBGPrintROM(".", 1);
-    DBGPrintBYTE(version[1], 1);
-    DBGPrintROM(".", 1);
-    DBGPrintBYTE(version[2], 1);
-    DBGPrintROM("\nADR ", 1);
-    DBGPrintBYTE(ADDR[0], 1);
-    DBGPrintROM(".", 1);
-    DBGPrintBYTE(ADDR[1], 1);
-    DBGPrintROM(".", 1);
-    DBGPrintBYTE(ADDR[2], 1);
-    DBGPrintROM(".", 1);
-    DBGPrintBYTE(ADDR[3], 1);
-    DBGPrintROM("\n", 1);
+    DBGPrintSTR("\nAR ", 1);
+    for (unsigned8 i = 0; i < 4; i++) {
+        DBGPrintBYTE(ADDR[i], 1);
+        DBGPrintSTR(" ", 1);
+    }
   
+    WDTTick <<= 1; // Because the tick is every half second
     StartTickCounter();
 
-    DBGPrintROM("PNG\n", 1);
+    DBGPrintSTR("\nPG\n", 1);
     while(Processing){
         if (INTCONbits.TMR0IF == 1) {
             LED_PWR ^= 1;
             LED_STAT ^= 1;
             ResetCounter();
             if (tickcounter++ >= WDTTick) {
-                DBGPrintROM("TMT\n", 1);
+                DBGPrintSTR("TT\n", 1);
                 Processing = false;
             }
         }
@@ -280,7 +251,6 @@ void main(void)
                 }
                 break;
             case PROCESS_SEND:
-                DBGPrintROM("PSD\n", 1);
                 ProcessData();
                                 
                 if (error != ERROR_CMD_NOT_RECOGNIZED) {
@@ -288,9 +258,9 @@ void main(void)
                 }
 
                 SendData();
-                DBGPrintROM("RTN ", 1);
+                DBGPrintSTR(" ", 1);
                 DBGPrintBYTE(error, 1);
-                DBGPrintROM("\n", 1);
+                DBGPrintSTR("\n", 1);
                 
             default:
                 mode=RECV;
@@ -301,29 +271,29 @@ void main(void)
     FlashMode = MODE_APP_CHALLENGE;
     WriteEEPROM(&FlashMode, EEPROM_ADDR_FLASHMODE, 1);
 
-    DBGPrintROM("STP\n", 1);
+    DBGPrintSTR("SP\n", 1);
 
     if (!ValidCode()) {
         Reset();
     }
-    DBGPrintROM("GTA\n", 1);
+    DBGPrintSTR("GA\n\n\n", 1);
 
     ClrWdt();
     WDTCONbits.SWDTEN = 1;
     ClrWdt();
 
-#if defined(OUTPUT_MODULE)
-    asm("goto 0x6678");
-#endif
-#if defined(INPUT_MODULE)
-    asm("goto 0x6678");
-#endif
-#if defined(DIMMER_MODULE)
-    asm("goto 0x6678");
-#endif
-#if defined(CAN_CONTROL_MODULE)
-    asm("goto 0xE678");
-#endif
+    #if defined(OUTPUT_MODULE)
+        asm("goto 0x6678");
+    #endif
+    #if defined(INPUT_MODULE)
+        asm("goto 0x6678");
+    #endif
+    #if defined(DIMMER_MODULE)
+        asm("goto 0x6678");
+    #endif
+    #if defined(CAN_CONTROL_MODULE)
+        asm("goto 0xE678");
+    #endif
 }
 
 unsigned8 SaveBlock(void) {
@@ -336,7 +306,10 @@ unsigned8 SaveBlock(void) {
 
     addr.Val32 = 0ul;
     addr.Val[1] = RECV_Data[0];
-    addr.Val[0] = RECV_Data[1];    
+    addr.Val[0] = RECV_Data[1];  
+    
+    DBGPrintSTR(" ", 1);
+    DBGPrintLONG(addr.Val32, 1);
 
     page_to_erase = addr.LW;
 
@@ -371,10 +344,8 @@ unsigned8 SaveCRC(void) {
     return NO_ERROR;
 }
 
-
 unsigned8 UpdateStatus(void) {
     unsigned8* pStatus = &status;
-    DBGPrintROM("UST", 1);
     if (ValidCode()) {
         status = 0;
         WriteEEPROM(pStatus, EEPROM_ADDR_STATUS, 1); 
@@ -393,12 +364,10 @@ unsigned8 GetFWVersionAndStatus(void) {
     SendDataRaw[SendDataCount++] = ReadEEPROMByte(EEPROM_ADDR_FW_version_minor);
     SendDataRaw[SendDataCount++] = ReadEEPROMByte(EEPROM_ADDR_FW_version_builtnr);
     SendDataRaw[SendDataCount++] = ReadEEPROMByte(EEPROM_ADDR_STATUS);
-    
     return NO_ERROR;
 }
 
 unsigned8 GetBLVersion(void) {
-    
     SendDataCount = 0;
     SendDataRaw[SendDataCount++] = BLVERSION_MAJOR;
     SendDataRaw[SendDataCount++] = BLVERSION_MINOR;
@@ -424,7 +393,7 @@ unsigned8 CommCRCCheck(unsigned8 place) {
     }
     
     if (error != NO_ERROR) {
-        DBGPrintROM("CRC E\n", 1);
+        //DBGPrintSTR("CRC E\n", 1);
         return true;
     }
     
@@ -439,16 +408,9 @@ void ProcessData() {
         error = ERROR_CMD_NOT_RECOGNIZED;
     }
 
-    DBGPrintROM("RCV ", 1);
+    DBGPrintSTR("RV ", 1);
+    DBGPrintCHR(RECV_comm, 1);
     DBGPrintCHR(RECV_command, 1);
-    DBGPrintROM(" [", 1);
-    for (i = 0; i < 100; i++) {
-        if (i > 0) {
-            DBGPrintROM(",", 1);
-        }
-        DBGPrintBYTE(RECV_Data[i], 1);
-    }
-    DBGPrintROM("]\n", 1);
 
     switch(RECV_command){
         case 'N':
@@ -515,7 +477,7 @@ void StartTickCounter() {
 void ResetCounter() {
     T0CONbits.TMR0ON = 0;
     INTCONbits.TMR0IF = 0;
-    TMR0H = 0xB3;                // 40000000 (4MHz) / 4 / 256 (prescaler) / 2 (every half second) = 19531 -> 65535 - 19531 = 46004                    
+    TMR0H = 0xB3; // 40000000 (4MHz) / 4 / 256 (prescaler) / 2 (every half second) = 19531 -> 65535 - 19531 = 46004                    
     TMR0L = 0xB4;
     T0CONbits.TMR0ON = 1;
 }
@@ -531,21 +493,11 @@ unsigned8 ValidCode(void)
 
     ReadEEPROM(CRC2.Val,EEPROM_ADDR_CRC,4);
 
-    // convert MSB lSB
+    // Convert MSB lSB
     CRC.Val[0] = CRC2.Val[3];
     CRC.Val[1] = CRC2.Val[2];
     CRC.Val[2] = CRC2.Val[1];
     CRC.Val[3] = CRC2.Val[0];
-
-    DBGPrintROM("ECS ", 1);
-    DBGPrintBYTE(CRC.Val[0], 1);
-    DBGPrintROM(".", 1);
-    DBGPrintBYTE(CRC.Val[1], 1);
-    DBGPrintROM(".", 1);
-    DBGPrintBYTE(CRC.Val[2], 1);
-    DBGPrintROM(".", 1);
-    DBGPrintBYTE(CRC.Val[3], 1);
-    DBGPrintROM("\n", 1);
     
     return (CRC.Val32 == CalcCheck(StartCode+8,EndCode));
 }
@@ -582,17 +534,6 @@ unsigned32 CalcCheck(unsigned32 ProgramStart, unsigned32 ProgramStop) {
         }
         sum += RECV_Data[i++];
     }
-
-    DBGPrintROM("CCS ", 1);
-    addr.Val32 = sum;
-    DBGPrintBYTE(addr.Val[0], 1);
-    DBGPrintROM(".", 1);
-    DBGPrintBYTE(addr.Val[1], 1);
-    DBGPrintROM(".", 1);
-    DBGPrintBYTE(addr.Val[2], 1);
-    DBGPrintROM(".", 1);
-    DBGPrintBYTE(addr.Val[3], 1);
-    DBGPrintROM("\n", 1);
 
     return sum;
 }
@@ -657,7 +598,7 @@ void WritePM(unsigned8 * ptrData, uReg32 SourceAddr)
 
 void ReadPMn(unsigned8 * ptrData, uReg32 SourceAddr, unsigned16 num)
 {
-   unsigned16 i;
+    unsigned16 i;
 
     if (SourceAddr.Val[2] != 0xF0) {
         TBLPTR = (unsigned24)SourceAddr.Val32;
