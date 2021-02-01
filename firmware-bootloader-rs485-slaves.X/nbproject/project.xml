@@ -3,7 +3,7 @@
     <type>com.microchip.mplab.nbide.embedded.makeproject</type>
     <configuration>
         <data xmlns="http://www.netbeans.org/ns/make-project/1">
-            <name>OMFB8</name>
+            <name>firmware-bootloader-rs485-slaves</name>
             <creation-uuid>c594b538-5263-467a-985e-f24bdea8b598</creation-uuid>
             <make-project-type>0</make-project-type>
             <c-extensions>c</c-extensions>
