@@ -35,10 +35,10 @@
 
 #if (defined(OUTPUT_MODULE) || defined(INPUT_MODULE) || defined(DIMMER_MODULE))
     #define EEPROM_ADDR_ADDR 1                // 4 bytes with the address used in the program itself
-    #define EEPROM_ADDR_HW_version 64         // Used to print this info when starting up.
-    #define EEPROM_ADDR_FW_version_major 65
-    #define EEPROM_ADDR_FW_version_minor 66
-    #define EEPROM_ADDR_FW_version_builtnr 67
+    #define EEPROM_ADDR_HW_VERSION 64         // Used to print this info when starting up.
+    #define EEPROM_ADDR_FW_VERSION_MAJOR 65
+    #define EEPROM_ADDR_FW_VERSION_MINOR 66
+    #define EEPROM_ADDR_FW_VERSION_BUILD 67
     #define EEPROM_ADDR_CRC 68                // This 4 bytes are the checksum of the program code. should be match
     #define EEPROM_ADDR_START_ADDR 72         // Not in use
     #define EEPROM_ADDR_FLASHMODE 74          // Challenge for app to reset
@@ -47,10 +47,10 @@
 #endif
 #if (defined(CAN_CONTROL_MODULE))
     #define EEPROM_ADDR_ADDR 309u               // 4 bytes with the address used in the program itself
-    #define EEPROM_ADDR_HW_version 320u         // Used to print this info when starting up.
-    #define EEPROM_ADDR_FW_version_major 321u
-    #define EEPROM_ADDR_FW_version_minor 322u
-    #define EEPROM_ADDR_FW_version_builtnr 323u
+    #define EEPROM_ADDR_HW_VERSION 320u         // Used to print this info when starting up.
+    #define EEPROM_ADDR_FW_VERSION_MAJOR 321u
+    #define EEPROM_ADDR_FW_VERSION_MINOR 322u
+    #define EEPROM_ADDR_FW_VERSION_BUILD 323u
     #define EEPROM_ADDR_CRC 324u                // This 4 bytes are the checksum of the program code. should be match
     #define EEPROM_ADDR_START_ADDR 328u         // Not in use
     #define EEPROM_ADDR_FLASHMODE 329u          // Challenge for app to reset
@@ -58,87 +58,37 @@
     #define EEPROM_ADDR_STATUS 331u             // Status of code with crc
 #endif
 
-#define StartCode 0x00000000ul
-#define EndCode (1ul*PROG_NUM_OF_BLOCKS*BLOCK_SIZE)
-#define StartBL (EndCode)
+#define START_CODE 0x00000000ul
+#define END_CODE (1ul * PROG_NUM_OF_BLOCKS * BLOCK_SIZE)
+#define START_BOOTLOADER (END_CODE)
 
 // Interrupt-related
 #define AppHighIntVector (0x4008)
-
-// void (*fpJumpToAppHighInt)(void) = AppHighIntVector;
 #pragma code high_vector = 0x08
 void interrupt_at_high_vector(void) {
-    // asm("CALL AppHighIntVector,0");
     asm("GOTO AppHighIntVector");
-    // (*fpJumpToAppHighInt)();
 }
 #pragma code
 
 #define AppLowIntVector (0x4018)
-
-// void (*fpJumpToAppLowInt)(void) = AppLowIntVector;
 #pragma code low_vector = 0x18
 void interrupt_at_low_vector(void) {
-    // asm("CALL AppLowIntVector,0");
     asm("GOTO AppLowIntVector");
-    // (*fpJumpToAppLowInt)();
 }
 #pragma code
 
 //----------------------------------------------------------------------------------------------------------------------
 
-#define MODE_APP_CHALLENGE 4
-
-unsigned8 ValidCode(void);
-unsigned32 CalcCheck(unsigned32 ProgramStart,unsigned32 ProgramStop);
-void ReadEEPROM(unsigned8 * ptrData, unsigned16 SourceAddr, unsigned16 num);
-unsigned8 ReadEEPROMByte(unsigned16 addr);
-void WriteEEPROM(unsigned8 *ptrData, unsigned16 SourceAddr, unsigned16 size); 
-void UnlockAndActivate(void);
-unsigned8 CheckButton(void);
-void StartTickCounter(void);
-void ResetCounter(void);
-void ProcessData(void);
-void CalculateAndSaveCRC(void);
-
-unsigned32 tickcounter = 0ul;
-unsigned32 WDTTick = 0ul;
-
-#define TIME_IN_BL_CHALLENGE_FAIL 10ul
-#define TIME_IN_BL_IF_BUTTON_PRESSED 30ul
-
-#if defined(OUTPUT_MODULE)    
-    #define BUTTON_TRIS TRISAbits.TRISA5
-    #define BUTTON PORTAbits.RA5
-    #define LED_PWR_TRIS TRISEbits.TRISE2
-    #define LED_PWR PORTEbits.RE2
-    #define LED_STAT_TRIS TRISEbits.TRISE1
-    #define LED_STAT PORTEbits.RE1
-#endif
-#if defined(INPUT_MODULE)    
-    #define BUTTON_TRIS TRISBbits.TRISB1
-    #define BUTTON PORTBbits.RB1
-    #define LED_PWR_TRIS TRISEbits.TRISE2
-    #define LED_PWR PORTEbits.RE2
-    #define LED_STAT_TRIS TRISEbits.TRISE1
-    #define LED_STAT PORTEbits.RE1
-#endif
-#if defined(DIMMER_MODULE)    
-    #define BUTTON_TRIS TRISBbits.TRISB1
-    #define BUTTON PORTBbits.RB1
-    #define LED_PWR_TRIS TRISEbits.TRISE2
-    #define LED_PWR PORTEbits.RE2
-    #define LED_STAT_TRIS TRISEbits.TRISE1
-    #define LED_STAT PORTEbits.RE1
-#endif
-#if defined(CAN_CONTROL_MODULE)    
-    #define BUTTON_TRIS TRISBbits.TRISB1
-    #define BUTTON PORTBbits.RB1             
-    #define LED_PWR_TRIS TRISEbits.TRISE2
-    #define LED_PWR PORTEbits.RE2
-    #define LED_STAT_TRIS TRISEbits.TRISE1
-    #define LED_STAT PORTEbits.RE1
-#endif
+unsigned8 valid_code(void);
+unsigned32 calculate_check(unsigned32 program_start, unsigned32 program_stop);
+void read_eeprom(unsigned8 *data, unsigned16 source_address, unsigned16 number);
+unsigned8 read_eeprom_byte(unsigned16 address);
+void write_eeprom(unsigned8 *data, unsigned16 source_address, unsigned16 size); 
+void unlock_and_activate(void);
+void start_counter(void);
+void reset_counter(void);
+void process_data(void);
+void calculate_and_save_crc(void);
 
 enum {
     NO_ERROR = 0,
@@ -150,145 +100,142 @@ enum {
     SEND_ADDR = 6
 } ERROR_MESSAGES;
 
-unsigned8 Processing = true;
-
+#define MODE_APP_CHALLENGE 4
+#define TIME_IN_BL_CHALLENGE_FAIL 10ul
 #define RECV 0
 #define PROCESS_SEND 1
-
-unsigned8 version[3];
-
 #define BLVERSION_MAJOR 2
 #define BLVERSION_MINOR 0
 
-unsigned8 status=0;
+unsigned32 tick_counter = 0ul;
+unsigned32 wdt_tick = 0ul;
+unsigned8 processing = true;
+unsigned8 version[3];
+unsigned8 status = 0;
 
 void main(void)
 {
-    unsigned8 StayInBoot = false;
-    unsigned8 FlashMode = ReadEEPROMByte(EEPROM_ADDR_FLASHMODE);
-    unsigned8 ButtonCounter = 0;
+    unsigned8 flash_mode = read_eeprom_byte(EEPROM_ADDR_FLASHMODE);
     unsigned8 mode = RECV;
-    unsigned8 i;
-    unsigned8 verb;
-    uReg32 addr;
 
     INTCONbits.GIE = 0;
     WDTCONbits.SWDTEN = 0;
 
-    LED_PWR_TRIS = 0;
-    LED_STAT_TRIS = 0;
-
-    ReadEEPROM(ADDR, EEPROM_ADDR_ADDR, 4); // Read address
-    ReadEEPROM(version, EEPROM_ADDR_FW_version_major, 3); // Read version
+    read_eeprom(ADDR, EEPROM_ADDR_ADDR, 4); // Read address
+    read_eeprom(version, EEPROM_ADDR_FW_VERSION_MAJOR, 3); // Read version
 
     init_uart();
-    InitDebugUART();
+    init_debug_uart();
     
-    DBGPrintSTR("\n\n-- BL ", 1);
+    debug_print_str("\n\n-- BL ", 1);
     #if defined(OUTPUT_MODULE)    
-        DBGPrintSTR("RY", 1);
+        debug_print_str("RY", 1);
     #endif
     #if defined(INPUT_MODULE)    
-        DBGPrintSTR("IT", 1);
+        debug_print_str("IT", 1);
     #endif
     #if defined(DIMMER_MODULE)    
-        DBGPrintSTR("DL", 1);
+        debug_print_str("DL", 1);
     #endif
     #if defined(CAN_CONTROL_MODULE)    
-        DBGPrintSTR("CL", 1);
+        debug_print_str("CL", 1);
     #endif
-    DBGPrintSTR("\n", 1);
+    debug_print_str("\n", 1);
 
-    Processing = false;
+    processing = false;
 
-    if (ADDR[0] == 0 || ADDR[0] == 255) { // If no address is assigned, the device is not yet initialized, go to app but first calculate the crc.
-        DBGPrintSTR("FL A\n", 1);
-        CalculateAndSaveCRC();
-        Processing = false; // Dont wait in BL
-    } else if (FlashMode == MODE_APP_CHALLENGE) {
-        DBGPrintSTR("FL B\n", 1);
-        Processing = true;
-        WDTTick = TIME_IN_BL_CHALLENGE_FAIL;
+    if ((ADDR[0] == 0 || ADDR[0] == 255) && flash_mode != MODE_APP_CHALLENGE) {
+        // If the device is not initialized, calculate CRC and go to APP mode,
+        // but prevent bootloader loops
+        debug_print_str("FL A\n", 1);
+        calculate_and_save_crc();
+        processing = false; // Don't wait in BL
+    } else if (flash_mode == MODE_APP_CHALLENGE) {
+        debug_print_str("FL B\n", 1);
+        processing = true;
+        wdt_tick = TIME_IN_BL_CHALLENGE_FAIL;
     } else {
-        DBGPrintSTR("FL C\n", 1);
-        WDTTick = ReadEEPROMByte(EEPROM_ADDR_TIME_IN_BOOT);
-        if (WDTTick > 0ul) {
-            Processing = true;
+        debug_print_str("FL C\n", 1);
+        wdt_tick = read_eeprom_byte(EEPROM_ADDR_TIME_IN_BOOT);
+        if (wdt_tick > 0ul) {
+            processing = true;
         }
     }
     
-    DBGPrintSTR("WT ", 1);
-    DBGPrintLONG(WDTTick, 1);
-    DBGPrintSTR("\nBV ", 1);
-    DBGPrintBYTE(BLVERSION_MAJOR, 1);
-    DBGPrintSTR(" ", 1);
-    DBGPrintBYTE(BLVERSION_MINOR, 1);
-    DBGPrintSTR("\nAR ", 1);
+    debug_print_str("WT ", 1);
+    debug_print_long(wdt_tick, 1);
+    debug_print_str("\nBV ", 1);
+    debug_print_byte(BLVERSION_MAJOR, 1);
+    debug_print_str(".", 1);
+    debug_print_byte(BLVERSION_MINOR, 1);
+    debug_print_str("\nFV ", 1);
+    for (unsigned8 i = 0; i < 3; i++) {
+        debug_print_byte(version[i], 1);
+        if (i < 2) {
+            debug_print_str(".", 1);
+        }
+    }
+    debug_print_str("\nAD ", 1);
     for (unsigned8 i = 0; i < 4; i++) {
-        DBGPrintBYTE(ADDR[i], 1);
-        DBGPrintSTR(" ", 1);
+        debug_print_byte(ADDR[i], 1);
+        if (i < 3) {
+            debug_print_str(".", 1);
+        }
     }
   
-    WDTTick <<= 1; // Because the tick is every half second
-    StartTickCounter();
+    wdt_tick <<= 1; // Because the tick is every half second
+    start_counter();
 
-    DBGPrintSTR("\nPG\n", 1);
-    while(Processing){
+    debug_print_str("\nPG\n", 1);
+    while(processing) {
         if (INTCONbits.TMR0IF == 1) {
-            LED_PWR ^= 1;
-            LED_STAT ^= 1;
-            ResetCounter();
-            if (tickcounter++ >= WDTTick) {
-                DBGPrintSTR("TT\n", 1);
-                Processing = false;
+            // TODO: Add "in bootloader"-indication
+            reset_counter();
+            if (tick_counter++ >= wdt_tick) {
+                debug_print_str("TT\n", 1);
+                processing = false;
             }
         }
         
         switch(mode){
             case RECV:
-                if (RecvData()) {
+                if (receive_data()) {
                     mode = PROCESS_SEND;
                 }
                 break;
             case PROCESS_SEND:
-                ProcessData();
+                process_data();
                                 
                 if (error != ERROR_CMD_NOT_RECOGNIZED) {
-                    tickcounter=0;
+                    tick_counter = 0;
                 }
 
-                SendData();
-                DBGPrintSTR(" ", 1);
-                DBGPrintBYTE(error, 1);
-                DBGPrintSTR("\n", 1);
+                send_data();
+                debug_print_str(" ", 1);
+                debug_print_byte(error, 1);
+                debug_print_str("\n", 1);
                 
             default:
-                mode=RECV;
+                mode = RECV;
                 break;
         }
     }
 
-    FlashMode = MODE_APP_CHALLENGE;
-    WriteEEPROM(&FlashMode, EEPROM_ADDR_FLASHMODE, 1);
+    flash_mode = MODE_APP_CHALLENGE;
+    write_eeprom(&flash_mode, EEPROM_ADDR_FLASHMODE, 1);
 
-    DBGPrintSTR("SP\n", 1);
+    debug_print_str("SP\n", 1);
 
-    if (!ValidCode()) {
+    if (!valid_code()) {
         Reset();
     }
-    DBGPrintSTR("GA\n\n\n", 1);
+    debug_print_str("GA\n\n\n", 1);
 
     ClrWdt();
     WDTCONbits.SWDTEN = 1;
     ClrWdt();
 
-    #if defined(OUTPUT_MODULE)
-        asm("goto 0x6678");
-    #endif
-    #if defined(INPUT_MODULE)
-        asm("goto 0x6678");
-    #endif
-    #if defined(DIMMER_MODULE)
+    #if (defined(OUTPUT_MODULE) || defined(INPUT_MODULE) || defined(DIMMER_MODULE))
         asm("goto 0x6678");
     #endif
     #if defined(CAN_CONTROL_MODULE)
@@ -296,164 +243,162 @@ void main(void)
     #endif
 }
 
-unsigned8 SaveBlock(void) {
-    uReg32 addr;
+unsigned8 save_block(void) {
+    ureg32 addr;
  
     unsigned8 buff[8];
     unsigned8 i = 0;
 
     unsigned16 page_to_erase;
 
-    addr.Val32 = 0ul;
-    addr.Val[1] = RECV_Data[0];
-    addr.Val[0] = RECV_Data[1];  
+    addr.value = 0ul;
+    addr.bytes[1] = received_data[0];
+    addr.bytes[0] = received_data[1];  
     
-    DBGPrintSTR(" ", 1);
-    DBGPrintLONG(addr.Val32, 1);
+    debug_print_str(" ", 1);
+    debug_print_long(addr.value, 1);
 
     page_to_erase = addr.LW;
 
-    if (addr.Val32 >= PROG_NUM_OF_BLOCKS) {
+    if (addr.value >= PROG_NUM_OF_BLOCKS) {
         return ERROR_OUT_OF_BOUNCE;
     }
 
-    addr.Val32 = addr.Val32 * BLOCK_SIZE;
-    if (addr.Val32 == 0ul) {
+    addr.value = addr.value * BLOCK_SIZE;
+    if (addr.value == 0ul) {
         // Read first 8 bytes and save it in the buffer.
-        ReadPMn((unsigned8*)buff, addr, 8u);
+        read_program_memory((unsigned8*)buff, addr, 8u);
         for(i = 0; i < 8; i++) {
-            RECV_Data[i+2] = buff[i];
+            received_data[i+2] = buff[i];
         }
     }
 
-    Erase(page_to_erase);    
-    WritePM(RECV_Data + 2, addr);
-    SendDataCount=0;
+    erase_program_memory(page_to_erase);    
+    write_program_memory(received_data + 2, addr);
+    send_data_counter=0;
     return NO_ERROR;
 }
 
-unsigned8 SaveVersion(void) {
-    WriteEEPROM(RECV_Data, EEPROM_ADDR_FW_version_major, 3); 
-    SendDataCount = 0;
+unsigned8 save_version(void) {
+    write_eeprom(received_data, EEPROM_ADDR_FW_VERSION_MAJOR, 3); 
+    send_data_counter = 0;
     return NO_ERROR;
 }
 
-unsigned8 SaveCRC(void) {
-    WriteEEPROM(RECV_Data, EEPROM_ADDR_CRC, 4); 
-    SendDataCount = 0;
+unsigned8 save_crc(void) {
+    write_eeprom(received_data, EEPROM_ADDR_CRC, 4); 
+    send_data_counter = 0;
     return NO_ERROR;
 }
 
-unsigned8 UpdateStatus(void) {
-    unsigned8* pStatus = &status;
-    if (ValidCode()) {
+unsigned8 update_status(void) {
+    unsigned8* ptr_status = &status;
+    if (valid_code()) {
         status = 0;
-        WriteEEPROM(pStatus, EEPROM_ADDR_STATUS, 1); 
+        write_eeprom(ptr_status, EEPROM_ADDR_STATUS, 1); 
         return NO_ERROR;
     } else {
         status = 1;
-        WriteEEPROM(pStatus, EEPROM_ADDR_STATUS, 1); 
+        write_eeprom(ptr_status, EEPROM_ADDR_STATUS, 1); 
         return ERROR_PROG_CRC_NOK;
     }
 }
 
-unsigned8 GetFWVersionAndStatus(void) {    
-    SendDataCount=0;
-    SendDataRaw[SendDataCount++] = ReadEEPROMByte(EEPROM_ADDR_HW_version);
-    SendDataRaw[SendDataCount++] = ReadEEPROMByte(EEPROM_ADDR_FW_version_major);
-    SendDataRaw[SendDataCount++] = ReadEEPROMByte(EEPROM_ADDR_FW_version_minor);
-    SendDataRaw[SendDataCount++] = ReadEEPROMByte(EEPROM_ADDR_FW_version_builtnr);
-    SendDataRaw[SendDataCount++] = ReadEEPROMByte(EEPROM_ADDR_STATUS);
+unsigned8 get_firmware_version_and_status(void) {    
+    send_data_counter=0;
+    raw_send_data[send_data_counter++] = read_eeprom_byte(EEPROM_ADDR_HW_VERSION);
+    raw_send_data[send_data_counter++] = read_eeprom_byte(EEPROM_ADDR_FW_VERSION_MAJOR);
+    raw_send_data[send_data_counter++] = read_eeprom_byte(EEPROM_ADDR_FW_VERSION_MINOR);
+    raw_send_data[send_data_counter++] = read_eeprom_byte(EEPROM_ADDR_FW_VERSION_BUILD);
+    raw_send_data[send_data_counter++] = read_eeprom_byte(EEPROM_ADDR_STATUS);
     return NO_ERROR;
 }
 
-unsigned8 GetBLVersion(void) {
-    SendDataCount = 0;
-    SendDataRaw[SendDataCount++] = BLVERSION_MAJOR;
-    SendDataRaw[SendDataCount++] = BLVERSION_MINOR;
+unsigned8 get_bootloader_version(void) {
+    send_data_counter = 0;
+    raw_send_data[send_data_counter++] = BLVERSION_MAJOR;
+    raw_send_data[send_data_counter++] = BLVERSION_MINOR;
     return NO_ERROR;
 }
 
-unsigned8 CommCRCCheck(unsigned8 place) {
+unsigned8 command_crc_check(unsigned8 place) {
     unsigned8 i = 0;
-    unsigned16_M crc = {.Val = 0};
-    if (RECV_Data[place] != 'C') {
+    unsigned16_mask crc = {.value = 0};
+    if (received_data[place] != 'C') {
         error = ERROR_FORMAT_NOK;
     }
     
     for(i = 0; i < place; i++) {
-        Recv_crc += RECV_Data[i];
+        received_crc += received_data[i];
     }
 
-    crc.v[1] = RECV_Data[place+1];
-    crc.v[0] = RECV_Data[place+2];    
+    crc.bytes[1] = received_data[place+1];
+    crc.bytes[0] = received_data[place+2];    
 
-    if (crc.Val != Recv_crc) {
+    if (crc.value != received_crc) {
         error = ERROR_CRC_NOK;
     }
     
     if (error != NO_ERROR) {
-        //DBGPrintSTR("CRC E\n", 1);
+        debug_print_str(" CRE", 1);
         return true;
     }
     
     return false;
 }
 
-void ProcessData() {
-    unsigned8 i = 0;
-
+void process_data() {
     error = NO_ERROR;
-    if (RECV_comm != 'F') {
+    if (received_command_first != 'F') {
         error = ERROR_CMD_NOT_RECOGNIZED;
     }
 
-    DBGPrintSTR("RV ", 1);
-    DBGPrintCHR(RECV_comm, 1);
-    DBGPrintCHR(RECV_command, 1);
+    debug_print_str("RV ", 1);
+    debug_print_chr(received_command_first, 1);
+    debug_print_chr(received_command_second, 1);
 
-    switch(RECV_command){
+    switch(received_command_second){
         case 'N':
-            if (CommCRCCheck(3)) {
+            if (command_crc_check(3)) {
                 break;
             }
-            error = SaveVersion();
+            error = save_version();
             break;
         case 'C':
-            if (CommCRCCheck(4)) {
+            if (command_crc_check(4)) {
                 break;
             }
-            error = SaveCRC();
+            error = save_crc();
             break;
         case 'H':
-            if (CommCRCCheck(0)) {
+            if (command_crc_check(0)) {
                 break;
             }
-            error = GetBLVersion();
+            error = get_bootloader_version();
             break;
         case 'D':    
-            if (CommCRCCheck(66)) {
+            if (command_crc_check(66)) {
                 break;
             }
-            error = SaveBlock();
+            error = save_block();
             break;
         case 'E':
-            if (CommCRCCheck(0)) {
+            if (command_crc_check(0)) {
                 break;
             }
-            error = UpdateStatus();
+            error = update_status();
             break;
         case 'V':
-            if (CommCRCCheck(0)) {
+            if (command_crc_check(0)) {
                 break;
             }
-            error = GetFWVersionAndStatus();
+            error = get_firmware_version_and_status();
             break;
         case 'G':
-            if (CommCRCCheck(0)) {
+            if (command_crc_check(0)) {
                 break;
             }
-            Processing = 0;
+            processing = 0;
             break;        
         case 'R':
             // Already in bootloader
@@ -464,17 +409,17 @@ void ProcessData() {
     }
 }
 
-void StartTickCounter() {
+void start_counter() {
     T0CONbits.TMR0ON = 0;
     T0CONbits.T08BIT = 0; // 16bit
     T0CONbits.T0CS = 0;
     T0CONbits.T0SE = 0;
     T0CONbits.PSA = 0;
     T0CONbits.T0PS = 7;
-    ResetCounter();
+    reset_counter();
 }
 
-void ResetCounter() {
+void reset_counter() {
     T0CONbits.TMR0ON = 0;
     INTCONbits.TMR0IF = 0;
     TMR0H = 0xB3; // 40000000 (4MHz) / 4 / 256 (prescaler) / 2 (every half second) = 19531 -> 65535 - 19531 = 46004                    
@@ -485,54 +430,51 @@ void ResetCounter() {
 #define start 0x0000
 #define offset 0x3C40
  
-unsigned8 ValidCode(void)
-{
-    uReg32 CRC;
-    uReg32 CRC2;
-    unsigned8 result = 0;
+unsigned8 valid_code(void) {
+    ureg32 CRC;
+    ureg32 CRC2;
 
-    ReadEEPROM(CRC2.Val,EEPROM_ADDR_CRC,4);
+    read_eeprom(CRC2.bytes, EEPROM_ADDR_CRC, 4);
 
     // Convert MSB lSB
-    CRC.Val[0] = CRC2.Val[3];
-    CRC.Val[1] = CRC2.Val[2];
-    CRC.Val[2] = CRC2.Val[1];
-    CRC.Val[3] = CRC2.Val[0];
+    CRC.bytes[0] = CRC2.bytes[3];
+    CRC.bytes[1] = CRC2.bytes[2];
+    CRC.bytes[2] = CRC2.bytes[1];
+    CRC.bytes[3] = CRC2.bytes[0];
     
-    return (CRC.Val32 == CalcCheck(StartCode+8,EndCode));
+    return (CRC.value == calculate_check(START_CODE + 8, END_CODE));
 }
 
-void CalculateAndSaveCRC() {
-    uReg32 CRC;
-    uReg32 CRC2;
-    CRC2.Val32 = CalcCheck(StartCode+8, EndCode);
+void calculate_and_save_crc() {
+    ureg32 CRC;
+    ureg32 CRC2;
+    CRC2.value = calculate_check(START_CODE + 8, END_CODE);
 
     // Convert MSB lSB
-    CRC.Val[0] = CRC2.Val[3];
-    CRC.Val[1] = CRC2.Val[2];
-    CRC.Val[2] = CRC2.Val[1];
-    CRC.Val[3] = CRC2.Val[0];
+    CRC.bytes[0] = CRC2.bytes[3];
+    CRC.bytes[1] = CRC2.bytes[2];
+    CRC.bytes[2] = CRC2.bytes[1];
+    CRC.bytes[3] = CRC2.bytes[0];
 
-    WriteEEPROM(&(CRC.Val[0]), EEPROM_ADDR_CRC,4);
+    write_eeprom(&(CRC.bytes[0]), EEPROM_ADDR_CRC, 4);
 }
 
 // ProgramMemStart should be a multiple of BLOCK_SIZE
-unsigned32 CalcCheck(unsigned32 ProgramStart, unsigned32 ProgramStop) {
-    uReg32 addr;
-    uReg32 test;
-    unsigned8 i = ProgramStart;
+unsigned32 calculate_check(unsigned32 program_start, unsigned32 program_stop) {
+    ureg32 addr;
+    unsigned8 i = program_start;
     unsigned32 sum = 0;
 
-    addr.Val32 = 0;
+    addr.value = 0;
 
-    ReadPMn((unsigned8*)RECV_Data, addr, BLOCK_SIZE); // The RECV_Data is not used here any more, so this mem can be used
+    read_program_memory((unsigned8*)received_data, addr, BLOCK_SIZE); // The received_data is not used here any more, so this mem can be used
 
-    for (addr.Val32 = ProgramStart; addr.Val32 < ProgramStop; addr.Val32++) {
-        if ((addr.Val32 % BLOCK_SIZE) == 0) {
+    for (addr.value = program_start; addr.value < program_stop; addr.value++) {
+        if ((addr.value % BLOCK_SIZE) == 0) {
             i = 0;
-            ReadPMn((unsigned8*)RECV_Data, addr, BLOCK_SIZE); // The RECV_Data is not used here any more, so this mem can be used
+            read_program_memory((unsigned8*)received_data, addr, BLOCK_SIZE); // The received_data is not used here any more, so this mem can be used
         }
-        sum += RECV_Data[i++];
+        sum += received_data[i++];
     }
 
     return sum;
@@ -540,68 +482,66 @@ unsigned32 CalcCheck(unsigned32 ProgramStart, unsigned32 ProgramStop) {
 
 #pragma code
 
-void ReadEEPROM(unsigned8 * ptrData, unsigned16 SourceAddr, unsigned16 num) {
+void read_eeprom(unsigned8 *data, unsigned16 source_address, unsigned16 num) {
     unsigned16 i;
     
     for(i = 0; i < num; i++) {
-        EEADR = (unsigned8)SourceAddr;
-        EEADRH = (unsigned8)(SourceAddr >> 8);
+        EEADR = (unsigned8)source_address;
+        EEADRH = (unsigned8)(source_address >> 8);
         EECON1 = 0b00000000; // EEPROM read mode
         EECON1bits.RD = 1;
         Nop();
-        ptrData[i] = EEDATA;                    
+        data[i] = EEDATA;                    
         
-        SourceAddr++;
+        source_address++;
     }
 }
 
-unsigned8 ReadEEPROMByte(unsigned16 addr) {
+unsigned8 read_eeprom_byte(unsigned16 address) {
     unsigned8 result;
-    ReadEEPROM(&result, addr, 1);
+    read_eeprom(&result, address, 1);
     return result;
 }
 
-void WriteEEPROM(unsigned8 *ptrData, unsigned16 SourceAddr, unsigned16 size) {
+void write_eeprom(unsigned8 *data, unsigned16 source_address, unsigned16 size) {
     unsigned16 i;
     for(i = 0; i < size; i++) {
-        EEADR = (unsigned8)SourceAddr;
-        EEADRH = (unsigned8)(SourceAddr >> 8);
-        EEDATA = ptrData[i];
+        EEADR = (unsigned8)source_address;
+        EEADRH = (unsigned8)(source_address >> 8);
+        EEDATA = data[i];
 
         EECON1 = 0b00000100;    // EEPROM Write mode
-        UnlockAndActivate();
-        SourceAddr++;
+        unlock_and_activate();
+        source_address++;
     }
 }
 
-void Erase(unsigned16 Page) {
+void erase_program_memory(unsigned16 page) {
     ClrWdt();
-    TBLPTR = ((unsigned24)Page << 6);
+    TBLPTR = ((unsigned24)page << 6);
     EECON1 = 0b10010100; // Prepare for erasing flash memory
-    UnlockAndActivate();
+    unlock_and_activate();
 }
 
-void WritePM(unsigned8 * ptrData, uReg32 SourceAddr)
-{
+void write_program_memory(unsigned8 *data, ureg32 source_address) {
     unsigned16 i;
-    TBLPTR = (unsigned24)SourceAddr.Val32;
+    TBLPTR = (unsigned24)source_address.value;
     for(i = 0; i < (unsigned16)BLOCK_SIZE; i++) { // Load the programming latches
-        TABLAT = ptrData[i];
+        TABLAT = data[i];
         asm("tblwtpostinc");
     }
 
     asm("tblrdpostdec"); // Do this instead of TBLPTR--; since it takes less code space.
 
     EECON1 = 0b10100100; // Flash programming mode
-    UnlockAndActivate();
+    unlock_and_activate();
 }
 
-void ReadPMn(unsigned8 * ptrData, uReg32 SourceAddr, unsigned16 num)
-{
+void read_program_memory(unsigned8 *data, ureg32 source_address, unsigned16 num) {
     unsigned16 i;
 
-    if (SourceAddr.Val[2] != 0xF0) {
-        TBLPTR = (unsigned24)SourceAddr.Val32;
+    if (source_address.bytes[2] != 0xF0) {
+        TBLPTR = (unsigned24)source_address.value;
     }
 
     for(i = 0; i < num; i++) {
@@ -617,12 +557,12 @@ void ReadPMn(unsigned8 * ptrData, uReg32 SourceAddr, unsigned16 num)
                 TABLAT = 0xFF;            
             }
         }
-        ptrData[i] = TABLAT;
+        data[i] = TABLAT;
     }
 }
 
-void UnlockAndActivate(void) {
-    boolean interruptsEnabled = INTCONbits.GIE;
+void unlock_and_activate(void) {
+    boolean interrupts_enabled = INTCONbits.GIE;
     INTCONbits.GIE = 0; // Make certain interrupts disabled for unlock process.
     
     // Now unlock sequence to set WR (make sure interrupts are disabled before executing this)
@@ -632,7 +572,7 @@ void UnlockAndActivate(void) {
     asm("MOVWF EECON2");
     asm("BSF EECON1, 1"); // Performs write
 
-    if (interruptsEnabled) {
+    if (interrupts_enabled) {
         INTCONbits.GIE = 1;
     }
     

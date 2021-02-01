@@ -35,15 +35,15 @@
     #endif
 
     extern unsigned8 error;
-    extern unsigned8 RECV_Data[];
-    extern unsigned8 SendDataRaw[];
-    extern unsigned8 SendDataCount;
-    extern unsigned8 RECV_command;
-    extern unsigned8 RECV_comm;
-    extern unsigned16 Recv_crc;
+    extern unsigned8 received_data[];
+    extern unsigned8 raw_send_data[];
+    extern unsigned8 send_data_counter;
+    extern unsigned8 received_command_second;
+    extern unsigned8 received_command_first;
+    extern unsigned16 received_crc;
     extern unsigned8 ADDR[];
 
     void init_uart(void);
-    void SendData(void);
-    unsigned8 RecvData(void);
+    void send_data(void);
+    unsigned8 receive_data(void);
 #endif

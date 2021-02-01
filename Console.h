@@ -7,10 +7,10 @@
     #define CONS_BAUDRATE 115200
     #define CONSOLE_STREAM_SIZE 1
 
-    void DBGPrintSTR(char* text,char blocking);
-    void DBGPrintINT(unsigned a,char blocking);
-    void DBGPrintBYTE(unsigned8 a,char blocking);
-    void DBGPrintCHR(unsigned8 a, char blocking);
-    void DBGPrintLONG(unsigned32 a,char blocking);
-    void InitDebugUART(void);
+    void debug_print_str(char* text,char blocking);
+    void debug_print_int(unsigned data,char blocking);
+    void debug_print_byte(unsigned8 data,char blocking);
+    void debug_print_chr(unsigned8 data, char blocking);
+    void debug_print_long(unsigned32 data,char blocking);
+    void init_debug_uart(void);
 #endif

@@ -10,19 +10,18 @@
     typedef signed long signed32;
     typedef uint24_t unsigned24;
     typedef enum _t_boolean { false = 0, true = 1 } boolean;
-    typedef enum BOOLEAN { FALSE = 0, TRUE } BOOLEAN;
-    typedef unsigned8 BOOL;
 
-    typedef union _t_uReg32 {
-        unsigned32 Val32;
+    typedef union _t_ureg32 {
+        unsigned32 value;
         struct {
             unsigned16 LW;
             unsigned16 HW;
         };
-        unsigned8 Val[4];
-    } uReg32;
+        unsigned8 bytes[4];
+    } ureg32;
 
-    typedef union _t_unsigned8_Masks {
+    typedef union _t_unsigned8_masks {
+        unsigned8 value;
         struct {
             unsigned int b0:1;
             unsigned int b1:1;
@@ -33,22 +32,21 @@
             unsigned int b6:1;
             unsigned int b7:1;
         } bits;
-        unsigned8 Val;
-    } unsigned8_M;
+    } unsigned8_mask;
 
-    typedef union _t_unsigned16_Masks {
-        unsigned16 Val;
+    typedef union _t_unsigned16_masks {
+        unsigned16 value;
         struct {
             unsigned8 LSB;
             unsigned8 MSB;
         };
-        unsigned8 v[2];
-    } unsigned16_M;
+        unsigned8 bytes[2];
+    } unsigned16_mask;
 
-    typedef union _t_unsigned32_Masks {
-        unsigned32 Val;
-        unsigned16 w[2];
-        unsigned8 v[4];
+    typedef union _t_unsigned32_masks {
+        unsigned32 value;
+        unsigned16 words[2];
+        unsigned8 bytes[4];
         struct {
             unsigned16 LW;
             unsigned16 HW;
@@ -93,16 +91,10 @@
             unsigned char b30:1;
             unsigned char b31:1;
         } bits;
-    } unsigned32_M;
+    } unsigned32_mask;
 
     #define LSB(a) ((a).v[0])
     #define MSB(a) ((a).v[1])
-    #define FALSE 0
     #define TRUE 1
-    #define true 1
-    #define false 0
-    #define READ 1
-    #define WRITE 2
-    #define OK 1
-    #define NOK 0
+    #define FALSE 0
 #endif

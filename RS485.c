@@ -22,30 +22,30 @@ enum {
 
 unsigned8 error = 0;
 
-#pragma udata RECV_Data
-    unsigned8 RECV_Data[100];
+#pragma udata received_data
+    unsigned8 received_data[100];
 #pragma udata
-#pragma udata SendDataRaw
-    unsigned8 SendDataRaw[100];
+#pragma udata raw_send_data
+    unsigned8 raw_send_data[100];
 #pragma udata
 
-unsigned8 SendDataCount=0;
-unsigned8 RECV_command;
-unsigned8 RECV_comm;
-unsigned16 Recv_crc;
+unsigned8 send_data_counter=0;
+unsigned8 received_command_second;
+unsigned8 received_command_first;
+unsigned16 received_crc;
 unsigned16 Send_crc;
 unsigned8 ADDR[4];
 
 void init_uart() {
-    unsigned32_M dwBaud;
+    unsigned32_mask dwBaud;
 
-    dwBaud.Val = (SYSTEM_CLOCK / 4) / COMM_BAUDRATE - 1;
+    dwBaud.value = (SYSTEM_CLOCK / 4) / COMM_BAUDRATE - 1;
 
     #if (COMM_UART_SEL == 1)
         BAUDCON1bits.BRG16 = 1;
         TXSTA1bits.BRGH = 1;
-        SPBRG1 = dwBaud.v[0];
-        SPBRGH1 = dwBaud.v[1];
+        SPBRG1 = dwBaud.bytes[0];
+        SPBRGH1 = dwBaud.bytes[1];
         TXSTA1bits.TXEN = 1;
         TXSTA1bits.SYNC = 0;
         RCSTA1bits.SPEN = 1;
@@ -53,8 +53,8 @@ void init_uart() {
     #else
         BAUDCON2bits.BRG16 = 1;
         TXSTA2bits.BRGH = 1;
-        SPBRG2 = dwBaud.v[0];
-        SPBRGH2 = dwBaud.v[1];
+        SPBRG2 = dwBaud.bytes[0];
+        SPBRGH2 = dwBaud.bytes[1];
         TXSTA2bits.TXEN = 1;
         TXSTA2bits.SYNC = 0;
         RCSTA2bits.SPEN = 1;
@@ -63,10 +63,10 @@ void init_uart() {
 
     ANCON0 = 0;
     ANCON1 = 0;
-    RS485_TXEN_TRIS    = 0;
-    RS485_TXEN        = 0;
+    RS485_TXEN_TRIS = 0;
+    RS485_TXEN = 0;
 
-    SendDataCount = 0;
+    send_data_counter = 0;
 }
 
 void putch(char c) {
@@ -81,7 +81,7 @@ void putch(char c) {
     #endif
 }
 
-unsigned8 RecvData() {
+unsigned8 receive_data() {
     static unsigned8 state = RECV_START1;
     unsigned8 c;
     unsigned8 done = false;
@@ -118,7 +118,7 @@ unsigned8 RecvData() {
                 }
                 break;
             case RECV_ADDR1:
-                Recv_crc = c;
+                received_crc = c;
                 if (c == ADDR[0]) {
                     state = RECV_ADDR2;
                 } else {
@@ -126,7 +126,7 @@ unsigned8 RecvData() {
                 }
                 break;
             case RECV_ADDR2:
-                Recv_crc += c;
+                received_crc += c;
                 if (c == ADDR[1]) {
                     state = RECV_ADDR3;
                 } else {
@@ -134,7 +134,7 @@ unsigned8 RecvData() {
                 }
                 break;
             case RECV_ADDR3:
-                Recv_crc += c;
+                received_crc += c;
                 if (c == ADDR[2]) {
                     state = RECV_ADDR4;
                 } else {
@@ -142,7 +142,7 @@ unsigned8 RecvData() {
                 }
                 break;
             case RECV_ADDR4:
-                Recv_crc += c;
+                received_crc += c;
                 if (c == ADDR[3]) {
                     state = RECV_CMD1;
                 } else {
@@ -150,18 +150,18 @@ unsigned8 RecvData() {
                 }
                 break;
             case RECV_CMD1:
-                Recv_crc += c;
-                RECV_comm = c;
+                received_crc += c;
+                received_command_first = c;
                 state = RECV_CMD2;
                 break;
             case RECV_CMD2:
-                Recv_crc += c;
-                RECV_command = c;
-                if (RECV_comm != 'F') {
+                received_crc += c;
+                received_command_second = c;
+                if (received_command_first != 'F') {
                     state = WAIT_TILL_RECV_RESET;
                     break;
                 }
-                switch (RECV_command) {
+                switch (received_command_second) {
                     case 'N':
                         counter = 0;
                         TotCount = 6;
@@ -191,7 +191,7 @@ unsigned8 RecvData() {
                 }
                 break;
             case RECV_DATA:
-                RECV_Data[counter++] = c;
+                received_data[counter++] = c;
                 if (counter < TotCount) {
                     break;
                 }
@@ -238,9 +238,9 @@ void PutCh (unsigned8 ch) {
     Send_crc += ch;
 }
 
-void SendData() {
+void send_data() {
     unsigned8 i = 0;
-    unsigned16_M crc;
+    unsigned16_mask crc;
     unsigned8 doubleloop = 0;
 
     for (doubleloop = 0; doubleloop < 2; doubleloop++) {
@@ -255,14 +255,14 @@ void SendData() {
         PutCh(ADDR[2]);
         PutCh(ADDR[3]);
         PutCh('F');
-        PutCh(RECV_command);
+        PutCh(received_command_second);
         PutCh(error);
 
-        while (i < SendDataCount) {
-            PutCh(SendDataRaw[i++]);
+        while (i < send_data_counter) {
+            PutCh(raw_send_data[i++]);
         }
 
-        crc.Val = Send_crc;
+        crc.value = Send_crc;
 
         PutCh('C');
         PutCh(crc.MSB);
@@ -275,9 +275,9 @@ void SendData() {
         while(!UART_TRMTDONE) {}
         RS485_TXEN = 0;
         UART_CREN = 1;
-        if (RECV_command != 'E') { // If not E, stop otherwise do a double loop
+        if (received_command_second != 'E') { // If not E, stop otherwise do a double loop
             doubleloop = 2;
         }
     }
-    SendDataCount = 0;
+    send_data_counter = 0;
 }

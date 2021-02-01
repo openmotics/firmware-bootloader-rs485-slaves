@@ -6,23 +6,16 @@
 
     #define BLOCK_SIZE 0x40 // 64 byte programming block size on the PIC18Fx7K22 family devices
 
-    #if defined(OUTPUT_MODULE)    
-        #define PROG_NUM_OF_BLOCKS 0x19A
-    #endif
-    #if defined(INPUT_MODULE)    
-        #define PROG_NUM_OF_BLOCKS 0x19A
-    #endif
-    #if defined(DIMMER_MODULE)    
+    #if (defined(OUTPUT_MODULE) || defined(INPUT_MODULE) || defined(DIMMER_MODULE))
         #define PROG_NUM_OF_BLOCKS 0x19A
     #endif
     #if defined(CAN_CONTROL_MODULE)    
-        #define PROG_NUM_OF_BLOCKS 0x39A         
+        #define PROG_NUM_OF_BLOCKS 0x39A
     #endif
 
-    void Erase(unsigned16 Page);
-    void WritePM(unsigned8* ptrData, uReg32 SourceAddr);
-    void ReadPMn(unsigned8* ptrData, uReg32 SourceAddr, unsigned16 Num);
-    void WriteCM(unsigned8* ptrData, uReg32 SourceAddr);
+    void erase_program_memory(unsigned16 Page);
+    void write_program_memory(unsigned8* ptrData, ureg32 SourceAddr);
+    void read_program_memory(unsigned8* ptrData, ureg32 SourceAddr, unsigned16 Num);
 
     #ifndef __DESIGNSTANDARDS_H
         #define __DESIGNSTANDARDS_H
