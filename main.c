@@ -107,7 +107,7 @@ void main(void)
     INTCONbits.GIE = 0;
     WDTCONbits.SWDTEN = 0;
 
-    read_eeprom(ADDR, EEPROM_ADDR_ADDR, 4); // Read address
+    read_eeprom(module_address, EEPROM_ADDR_ADDR, 4); // Read address
     read_eeprom(version, EEPROM_ADDR_FW_VERSION_MAJOR, 3); // Read version
 
     init_uart();
@@ -130,7 +130,7 @@ void main(void)
 
     processing = false;
 
-    if ((ADDR[0] == 0 || ADDR[0] == 255) && flash_mode != MODE_APP_CHALLENGE) {
+    if ((module_address[0] == 0 || module_address[0] == 255) && flash_mode != MODE_APP_CHALLENGE) {
         // If the device is not initialized, calculate CRC and go to APP mode,
         // but prevent bootloader loops
         debug_print_str("FL A\n", 1);
@@ -163,7 +163,7 @@ void main(void)
     }
     debug_print_str("\nAD ", 1);
     for (unsigned8 i = 0; i < 4; i++) {
-        debug_print_byte(ADDR[i], 1);
+        debug_print_byte(module_address[i], 1);
         if (i < 3) {
             debug_print_str(".", 1);
         }
@@ -207,8 +207,10 @@ void main(void)
         }
     }
 
-    flash_mode = MODE_APP_CHALLENGE;
-    write_eeprom(&flash_mode, EEPROM_ADDR_FLASHMODE, 1);
+    if (flash_mode != MODE_APP_CHALLENGE) {
+        flash_mode = MODE_APP_CHALLENGE;
+        write_eeprom(&flash_mode, EEPROM_ADDR_FLASHMODE, 1);
+    }
 
     debug_print_str("SP\n", 1);
 

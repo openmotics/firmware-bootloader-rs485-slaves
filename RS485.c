@@ -29,12 +29,12 @@ unsigned8 error = 0;
     unsigned8 raw_send_data[100];
 #pragma udata
 
-unsigned8 send_data_counter=0;
+unsigned8 send_data_counter = 0;
 unsigned8 received_command_second;
 unsigned8 received_command_first;
 unsigned16 received_crc;
-unsigned16 Send_crc;
-unsigned8 ADDR[4];
+unsigned16 send_crc;
+unsigned8 module_address[4];
 
 void init_uart() {
     unsigned32_mask dwBaud;
@@ -119,7 +119,7 @@ unsigned8 receive_data() {
                 break;
             case RECV_ADDR1:
                 received_crc = c;
-                if (c == ADDR[0]) {
+                if (c == module_address[0]) {
                     state = RECV_ADDR2;
                 } else {
                     state = RECV_START1;
@@ -127,7 +127,7 @@ unsigned8 receive_data() {
                 break;
             case RECV_ADDR2:
                 received_crc += c;
-                if (c == ADDR[1]) {
+                if (c == module_address[1]) {
                     state = RECV_ADDR3;
                 } else {
                     state = RECV_START1;
@@ -135,7 +135,7 @@ unsigned8 receive_data() {
                 break;
             case RECV_ADDR3:
                 received_crc += c;
-                if (c == ADDR[2]) {
+                if (c == module_address[2]) {
                     state = RECV_ADDR4;
                 } else {
                     state = RECV_START1;
@@ -143,7 +143,7 @@ unsigned8 receive_data() {
                 break;
             case RECV_ADDR4:
                 received_crc += c;
-                if (c == ADDR[3]) {
+                if (c == module_address[3]) {
                     state = RECV_CMD1;
                 } else {
                     state = RECV_START1;
@@ -235,7 +235,7 @@ unsigned8 receive_data() {
 void PutCh (unsigned8 ch) {
     while(!UART_TRMTDONE);
     UART_TXREG = ch;
-    Send_crc += ch;
+    send_crc += ch;
 }
 
 void send_data() {
@@ -249,11 +249,11 @@ void send_data() {
 
         PutCh('R');
         PutCh('C');
-        Send_crc = 0;
-        PutCh(ADDR[0]);
-        PutCh(ADDR[1]);
-        PutCh(ADDR[2]);
-        PutCh(ADDR[3]);
+        send_crc = 0;
+        PutCh(module_address[0]);
+        PutCh(module_address[1]);
+        PutCh(module_address[2]);
+        PutCh(module_address[3]);
         PutCh('F');
         PutCh(received_command_second);
         PutCh(error);
@@ -262,7 +262,7 @@ void send_data() {
             PutCh(raw_send_data[i++]);
         }
 
-        crc.value = Send_crc;
+        crc.value = send_crc;
 
         PutCh('C');
         PutCh(crc.MSB);

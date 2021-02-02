@@ -41,7 +41,7 @@
     extern unsigned8 received_command_second;
     extern unsigned8 received_command_first;
     extern unsigned16 received_crc;
-    extern unsigned8 ADDR[];
+    extern unsigned8 module_address[];
 
     void init_uart(void);
     void send_data(void);
