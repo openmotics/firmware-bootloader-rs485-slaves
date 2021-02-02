@@ -3,34 +3,20 @@
 #include "RS485.h"
 #include "Console.h"
 
-#if (defined(OUTPUT_MODULE) || defined(INPUT_MODULE) || defined(DIMMER_MODULE))
-    #pragma config FOSC = HS2    // Clock in external mode with range including 10MHz   [HS2]INTIO2
-    #pragma config SOSCSEL = DIG
-    #pragma config PLLCFG = ON   // x4 PLL clock multiplication [ON]OFF
-    #pragma config XINST = OFF
-    #pragma config WDTEN = ON    // Enable watchdog timer SWDTEN        
-    #pragma config WDTPS = 512   // Set the watchdog timer prescaler to 4ms * 1024 = about 4 seconds
-    #pragma config CPB = OFF     // Boot memory read protect
-    #pragma config CP0 = OFF     // Program memory read protect
-    #pragma config CP1 = OFF
-    #pragma config CP2 = OFF
-    #pragma config CP3 = OFF
-    #pragma config CPD = OFF     // EEPROM read protect
-#endif
+#pragma config FOSC = HS2    // Clock in external mode with range including 10MHz   [HS2]INTIO2
+#pragma config SOSCSEL = DIG
+#pragma config PLLCFG = ON   // x4 PLL clock multiplication [ON]OFF
+#pragma config XINST = OFF
+#pragma config WDTEN = ON    // Enable watchdog timer SWDTEN        
+#pragma config WDTPS = 512   // Set the watchdog timer prescaler to 4ms * 1024 = about 4 seconds
+#pragma config CPB = OFF     // Boot memory read protect
+#pragma config CP0 = OFF     // Program memory read protect
+#pragma config CP1 = OFF
+#pragma config CP2 = OFF
+#pragma config CP3 = OFF
+#pragma config CPD = OFF     // EEPROM read protect
 #if (defined(CAN_CONTROL_MODULE))
-    #pragma config FOSC = HS2    // Clock in external mode with range including 10MHz   [HS2]INTIO2
-    #pragma config SOSCSEL = DIG
-    #pragma config PLLCFG = ON   // x4 PLL clock multiplication [ON]OFF
-    #pragma config XINST = OFF
-    #pragma config WDTEN = ON    // Enable watchdog timer SWDTEN        
-    #pragma config WDTPS = 512   // Set the watchdog timer prescaler to 4ms * 1024 = about 4 seconds
-    #pragma config CANMX = PORTB // Mux cna on portb 
-    #pragma config CPB = OFF     // Boot memory read protect
-    #pragma config CP0 = OFF     // Program memory read protect
-    #pragma config CP1 = OFF
-    #pragma config CP2 = OFF
-    #pragma config CP3 = OFF
-    #pragma config CPD = OFF     // EEPROM read protect
+    #pragma config CANMX = PORTB // Mux can on portb 
 #endif
 
 #if (defined(OUTPUT_MODULE) || defined(INPUT_MODULE) || defined(DIMMER_MODULE))
@@ -235,12 +221,7 @@ void main(void)
     WDTCONbits.SWDTEN = 1;
     ClrWdt();
 
-    #if (defined(OUTPUT_MODULE) || defined(INPUT_MODULE) || defined(DIMMER_MODULE))
-        asm("goto 0x6678");
-    #endif
-    #if defined(CAN_CONTROL_MODULE)
-        asm("goto 0xE678");
-    #endif
+    asm("goto 0xE678");
 }
 
 unsigned8 save_block(void) {
