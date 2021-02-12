@@ -17,10 +17,6 @@
             </sourceRootList>
             <confList>
                 <confElem>
-                    <name>PIC18F45K80</name>
-                    <type>2</type>
-                </confElem>
-                <confElem>
                     <name>PIC18F46K80</name>
                     <type>2</type>
                 </confElem>

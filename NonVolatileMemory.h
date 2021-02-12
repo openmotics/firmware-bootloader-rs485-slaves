@@ -1,7 +1,6 @@
 #ifndef __NONVOLATILEMEMORY_H
     #define __NONVOLATILEMEMORY_H
 
-    #include "ModuleType.h"
     #include "DataTypes.h"
 
     #define BLOCK_SIZE 0x40 // 64 byte programming block size on the PIC18Fx7K22 family devices

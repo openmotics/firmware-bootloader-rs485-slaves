@@ -41,25 +41,14 @@ void init_uart() {
 
     dwBaud.value = (SYSTEM_CLOCK / 4) / COMM_BAUDRATE - 1;
 
-    #if (COMM_UART_SEL == 1)
-        BAUDCON1bits.BRG16 = 1;
-        TXSTA1bits.BRGH = 1;
-        SPBRG1 = dwBaud.bytes[0];
-        SPBRGH1 = dwBaud.bytes[1];
-        TXSTA1bits.TXEN = 1;
-        TXSTA1bits.SYNC = 0;
-        RCSTA1bits.SPEN = 1;
-        RCSTA1bits.CREN = 1;
-    #else
-        BAUDCON2bits.BRG16 = 1;
-        TXSTA2bits.BRGH = 1;
-        SPBRG2 = dwBaud.bytes[0];
-        SPBRGH2 = dwBaud.bytes[1];
-        TXSTA2bits.TXEN = 1;
-        TXSTA2bits.SYNC = 0;
-        RCSTA2bits.SPEN = 1;
-        RCSTA2bits.CREN = 1;
-    #endif
+    BAUDCON1bits.BRG16 = 1;
+    TXSTA1bits.BRGH = 1;
+    SPBRG1 = dwBaud.bytes[0];
+    SPBRGH1 = dwBaud.bytes[1];
+    TXSTA1bits.TXEN = 1;
+    TXSTA1bits.SYNC = 0;
+    RCSTA1bits.SPEN = 1;
+    RCSTA1bits.CREN = 1;
 
     ANCON0 = 0;
     ANCON1 = 0;
@@ -72,13 +61,8 @@ void init_uart() {
 void putch(char c) {
     // This function is responsible for sending one character out to your USART2
     // (or whatever output device you might have, such as LCD, so that you can use DBGPRINTF()
-    #if COMM_UART_SEL == 1
-        while (!TXSTA2bits.TRMT) {}
-        TXREG2 = c;
-    #elif COMM_UART_SEL == 2
-        while (!TXSTA1bits.TRMT) {}
-        TXREG1 = c;
-    #endif
+    while (!TXSTA2bits.TRMT) {}
+    TXREG2 = c;
 }
 
 unsigned8 receive_data() {

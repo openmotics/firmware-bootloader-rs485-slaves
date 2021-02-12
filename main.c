@@ -15,34 +15,17 @@
 #pragma config CP2 = OFF
 #pragma config CP3 = OFF
 #pragma config CPD = OFF     // EEPROM read protect
-#if (defined(CAN_CONTROL_MODULE))
-    #pragma config CANMX = PORTB // Mux can on portb 
-#endif
 
-#if (defined(OUTPUT_MODULE) || defined(INPUT_MODULE) || defined(DIMMER_MODULE))
-    #define EEPROM_ADDR_ADDR 1                // 4 bytes with the address used in the program itself
-    #define EEPROM_ADDR_HW_VERSION 64         // Used to print this info when starting up.
-    #define EEPROM_ADDR_FW_VERSION_MAJOR 65
-    #define EEPROM_ADDR_FW_VERSION_MINOR 66
-    #define EEPROM_ADDR_FW_VERSION_BUILD 67
-    #define EEPROM_ADDR_CRC 68                // This 4 bytes are the checksum of the program code. should be match
-    #define EEPROM_ADDR_START_ADDR 72         // Not in use
-    #define EEPROM_ADDR_FLASHMODE 74          // Challenge for app to reset
-    #define EEPROM_ADDR_TIME_IN_BOOT 75       // Time to wait till timeout.
-    #define EEPROM_ADDR_STATUS 76             // Status of code with crc
-#endif
-#if (defined(CAN_CONTROL_MODULE))
-    #define EEPROM_ADDR_ADDR 309u               // 4 bytes with the address used in the program itself
-    #define EEPROM_ADDR_HW_VERSION 320u         // Used to print this info when starting up.
-    #define EEPROM_ADDR_FW_VERSION_MAJOR 321u
-    #define EEPROM_ADDR_FW_VERSION_MINOR 322u
-    #define EEPROM_ADDR_FW_VERSION_BUILD 323u
-    #define EEPROM_ADDR_CRC 324u                // This 4 bytes are the checksum of the program code. should be match
-    #define EEPROM_ADDR_START_ADDR 328u         // Not in use
-    #define EEPROM_ADDR_FLASHMODE 329u          // Challenge for app to reset
-    #define EEPROM_ADDR_TIME_IN_BOOT 330u       // Time to wait till timeout.
-    #define EEPROM_ADDR_STATUS 331u             // Status of code with crc
-#endif
+#define EEPROM_ADDR_ADDR 1                // 4 bytes with the address used in the program itself
+#define EEPROM_ADDR_HW_VERSION 64         // Used to print this info when starting up.
+#define EEPROM_ADDR_FW_VERSION_MAJOR 65
+#define EEPROM_ADDR_FW_VERSION_MINOR 66
+#define EEPROM_ADDR_FW_VERSION_BUILD 67
+#define EEPROM_ADDR_CRC 68                // This 4 bytes are the checksum of the program code. should be match
+#define EEPROM_ADDR_START_ADDR 72         // Not in use
+#define EEPROM_ADDR_FLASHMODE 74          // Challenge for app to reset
+#define EEPROM_ADDR_TIME_IN_BOOT 75       // Time to wait till timeout.
+#define EEPROM_ADDR_STATUS 76             // Status of code with crc
 
 #define START_CODE 0x00000000ul
 #define END_CODE (1ul * PROG_NUM_OF_BLOCKS * BLOCK_SIZE)
@@ -113,20 +96,7 @@ void main(void)
     init_uart();
     init_debug_uart();
     
-    debug_print_str("\n\n-- BL ", 1);
-    #if defined(OUTPUT_MODULE)    
-        debug_print_str("RY", 1);
-    #endif
-    #if defined(INPUT_MODULE)    
-        debug_print_str("IT", 1);
-    #endif
-    #if defined(DIMMER_MODULE)    
-        debug_print_str("DL", 1);
-    #endif
-    #if defined(CAN_CONTROL_MODULE)    
-        debug_print_str("CL", 1);
-    #endif
-    debug_print_str("\n", 1);
+    debug_print_str("\n\n-- BL\n", 1);
 
     processing = false;
 
