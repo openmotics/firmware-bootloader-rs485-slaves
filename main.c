@@ -74,7 +74,7 @@ enum {
 #define RECV 0
 #define PROCESS_SEND 1
 #define BLVERSION_MAJOR 2
-#define BLVERSION_MINOR 0
+#define BLVERSION_MINOR 1
 
 unsigned32 tick_counter = 0ul;
 unsigned32 wdt_tick = 0ul;
