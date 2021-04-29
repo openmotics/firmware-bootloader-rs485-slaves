@@ -1,6 +1,4 @@
 .idea
 /firmware-bootloader-rs485-slaves.X/build/
 /firmware-bootloader-rs485-slaves.X/nbproject/private/
-/firmware-bootloader-rs485-slaves.X/nbproject/Makefile-*
-/firmware-bootloader-rs485-slaves.X/nbproject/Package-*
 /firmware-bootloader-rs485-slaves.X/dist/
