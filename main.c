@@ -74,10 +74,10 @@ enum {
 #define RECV 0
 #define PROCESS_SEND 1
 #define BLVERSION_MAJOR 2
-#define BLVERSION_MINOR 1
+#define BLVERSION_MINOR 2
 
 unsigned32 tick_counter = 0ul;
-unsigned32 wdt_tick = 0ul;
+unsigned32 bootloader_timeout = 0ul;
 unsigned8 processing = true;
 unsigned8 version[3];
 unsigned8 status = 0;
@@ -109,17 +109,17 @@ void main(void)
     } else if (flash_mode == MODE_APP_CHALLENGE) {
         debug_print_str("FL B\n", 1);
         processing = true;
-        wdt_tick = TIME_IN_BL_CHALLENGE_FAIL;
+        bootloader_timeout = TIME_IN_BL_CHALLENGE_FAIL;
     } else {
         debug_print_str("FL C\n", 1);
-        wdt_tick = read_eeprom_byte(EEPROM_ADDR_TIME_IN_BOOT);
-        if (wdt_tick > 0ul) {
+        bootloader_timeout = read_eeprom_byte(EEPROM_ADDR_TIME_IN_BOOT);
+        if (bootloader_timeout > 0ul) {
             processing = true;
         }
     }
     
-    debug_print_str("WT ", 1);
-    debug_print_long(wdt_tick, 1);
+    debug_print_str("BT ", 1);
+    debug_print_long(bootloader_timeout, 1);
     debug_print_str("\nBV ", 1);
     debug_print_byte(BLVERSION_MAJOR, 1);
     debug_print_str(".", 1);
@@ -139,15 +139,17 @@ void main(void)
         }
     }
   
-    wdt_tick <<= 1; // Because the tick is every half second
+    bootloader_timeout <<= 1; // Because the tick is every half second
     start_counter();
 
     debug_print_str("\nPG\n", 1);
     while(processing) {
+        ClrWdt(); // Clear the watchdog timer
+        
         if (INTCONbits.TMR0IF == 1) {
             // TODO: Add "in bootloader"-indication
             reset_counter();
-            if (tick_counter++ >= wdt_tick) {
+            if (tick_counter++ >= bootloader_timeout) {
                 debug_print_str("TT\n", 1);
                 processing = false;
             }
