@@ -23,7 +23,7 @@
 #define EEPROM_ADDR_FW_VERSION_BUILD 67
 #define EEPROM_ADDR_CRC 68                // This 4 bytes are the checksum of the program code. should be match
 #define EEPROM_ADDR_START_ADDR 72         // Not in use
-#define EEPROM_ADDR_FLASHMODE 74          // Challenge for app to reset
+#define EEPROM_ADDR_SAFETY_BYTE 74        // Challenge for app to reset
 #define EEPROM_ADDR_TIME_IN_BOOT 75       // Time to wait till timeout.
 #define EEPROM_ADDR_STATUS 76             // Status of code with crc
 
@@ -69,22 +69,22 @@ enum {
     SEND_ADDR = 6
 } ERROR_MESSAGES;
 
-#define MODE_APP_CHALLENGE 4
-#define TIME_IN_BL_CHALLENGE_FAIL 10ul
+#define TIME_IN_BOOT_SAFETY_FAIL 60ul
 #define RECV 0
 #define PROCESS_SEND 1
 #define BLVERSION_MAJOR 2
-#define BLVERSION_MINOR 2
+#define BLVERSION_MINOR 3
 
 unsigned32 tick_counter = 0ul;
 unsigned32 bootloader_timeout = 0ul;
-unsigned8 processing = true;
+boolean processing = true;
+boolean reset_bsc = false;
 unsigned8 version[3];
 unsigned8 status = 0;
 
 void main(void)
 {
-    unsigned8 flash_mode = read_eeprom_byte(EEPROM_ADDR_FLASHMODE);
+    unsigned8 safety_counter = read_eeprom_byte(EEPROM_ADDR_SAFETY_BYTE);
     unsigned8 mode = RECV;
 
     INTCONbits.GIE = 0;
@@ -96,42 +96,48 @@ void main(void)
     init_uart();
     init_debug_uart();
     
-    debug_print_str("\n\n-- BL\n", 1);
+    debug_print_str("\r\n\r\n--\r\nBLO", 1);
+    debug_print_str("\r\nBVE ", 1);
+    debug_print_byte(BLVERSION_MAJOR, 1);
+    debug_print_str(".", 1);
+    debug_print_byte(BLVERSION_MINOR, 1);
 
     processing = false;
-
-    if ((module_address[0] == 0 || module_address[0] == 255) && flash_mode != MODE_APP_CHALLENGE) {
-        // If the device is not initialized, calculate CRC and go to APP mode,
-        // but prevent bootloader loops
-        debug_print_str("FL A\n", 1);
+    reset_bsc = false;
+    if ((module_address[0] == 0 || module_address[0] == 255) && safety_counter > 0) {
+        // Device not initialized: Calculate application CRC and jump to application
+        debug_print_str("\r\nFLO INIT", 1);
+        if (safety_counter > 5) {
+            // However, only try a few times
+            reset_bsc = true;
+        }
         calculate_and_save_crc();
-        processing = false; // Don't wait in BL
-    } else if (flash_mode == MODE_APP_CHALLENGE) {
-        debug_print_str("FL B\n", 1);
+    } else if (safety_counter == 0) {
+        // Safety counter at 0, application did not start.
+        debug_print_str("\r\nFLO SFAIL", 1);
         processing = true;
-        bootloader_timeout = TIME_IN_BL_CHALLENGE_FAIL;
+        bootloader_timeout = TIME_IN_BOOT_SAFETY_FAIL;
     } else {
-        debug_print_str("FL C\n", 1);
+        // Everything as expected, using configured timeout
+        debug_print_str("\r\nFLO NORM", 1);
         bootloader_timeout = read_eeprom_byte(EEPROM_ADDR_TIME_IN_BOOT);
         if (bootloader_timeout > 0ul) {
             processing = true;
         }
     }
     
-    debug_print_str("BT ", 1);
+    debug_print_str("\r\nBLT ", 1);
     debug_print_long(bootloader_timeout, 1);
-    debug_print_str("\nBV ", 1);
-    debug_print_byte(BLVERSION_MAJOR, 1);
-    debug_print_str(".", 1);
-    debug_print_byte(BLVERSION_MINOR, 1);
-    debug_print_str("\nFV ", 1);
+    debug_print_str("\r\nBSC ", 1);
+    debug_print_long(safety_counter, 1);
+    debug_print_str("\r\nFWV ", 1);
     for (unsigned8 i = 0; i < 3; i++) {
         debug_print_byte(version[i], 1);
         if (i < 2) {
             debug_print_str(".", 1);
         }
     }
-    debug_print_str("\nAD ", 1);
+    debug_print_str("\r\nADR ", 1);
     for (unsigned8 i = 0; i < 4; i++) {
         debug_print_byte(module_address[i], 1);
         if (i < 3) {
@@ -142,15 +148,15 @@ void main(void)
     bootloader_timeout <<= 1; // Because the tick is every half second
     start_counter();
 
-    debug_print_str("\nPG\n", 1);
-    while(processing) {
+    debug_print_str("\r\nPSG\r\n", 1);
+    while (processing) {
         ClrWdt(); // Clear the watchdog timer
         
         if (INTCONbits.TMR0IF == 1) {
             // TODO: Add "in bootloader"-indication
             reset_counter();
             if (tick_counter++ >= bootloader_timeout) {
-                debug_print_str("TT\n", 1);
+                debug_print_str("BTO\r\n", 1);
                 processing = false;
             }
         }
@@ -171,7 +177,7 @@ void main(void)
                 send_data();
                 debug_print_str(" ", 1);
                 debug_print_byte(error, 1);
-                debug_print_str("\n", 1);
+                debug_print_str("\r\n", 1);
                 
             default:
                 mode = RECV;
@@ -179,17 +185,24 @@ void main(void)
         }
     }
 
-    if (flash_mode != MODE_APP_CHALLENGE) {
-        flash_mode = MODE_APP_CHALLENGE;
-        write_eeprom(&flash_mode, EEPROM_ADDR_FLASHMODE, 1);
-    }
-
-    debug_print_str("SP\n", 1);
+    debug_print_str("STP\r\n", 1);
 
     if (!valid_code()) {
+        debug_print_str("IVC\r\n", 1);
         Reset();
     }
-    debug_print_str("GA\n\n\n", 1);
+
+    if (reset_bsc) {
+        debug_print_str("RSC\r\n", 1);
+        safety_counter = 5;
+        write_eeprom(&safety_counter, EEPROM_ADDR_SAFETY_BYTE, 1);
+    } else if (safety_counter > 0) {
+        debug_print_str("DSC\r\n", 1);
+        safety_counter -= 1;
+        write_eeprom(&safety_counter, EEPROM_ADDR_SAFETY_BYTE, 1);
+    }
+    
+    debug_print_str("GTA\r\n\r\n\r\n", 1);
 
     ClrWdt();
     WDTCONbits.SWDTEN = 1;
@@ -308,7 +321,7 @@ void process_data() {
         error = ERROR_CMD_NOT_RECOGNIZED;
     }
 
-    debug_print_str("RV ", 1);
+    debug_print_str("RCV ", 1);
     debug_print_chr(received_command_first, 1);
     debug_print_chr(received_command_second, 1);
 
@@ -353,7 +366,8 @@ void process_data() {
             if (command_crc_check(0)) {
                 break;
             }
-            processing = 0;
+            reset_bsc = true;
+            processing = false;
             break;        
         case 'R':
             // Already in bootloader

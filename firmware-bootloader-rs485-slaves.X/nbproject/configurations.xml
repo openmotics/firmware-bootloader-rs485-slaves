@@ -8,7 +8,6 @@
       <itemPath>../NonVolatileMemory.h</itemPath>
       <itemPath>../RS485.h</itemPath>
       <itemPath>../Console.h</itemPath>
-      <itemPath>../ModuleType.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
