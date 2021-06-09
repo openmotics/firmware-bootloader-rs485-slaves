@@ -8,6 +8,8 @@
       <itemPath>../NonVolatileMemory.h</itemPath>
       <itemPath>../RS485.h</itemPath>
       <itemPath>../Console.h</itemPath>
+      <itemPath>../Eeprom.h</itemPath>
+      <itemPath>../I2C.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -21,6 +23,8 @@
       <itemPath>../ModuleType.c</itemPath>
       <itemPath>../RS485.c</itemPath>
       <itemPath>../main.c</itemPath>
+      <itemPath>../I2C.c</itemPath>
+      <itemPath>../Eeprom.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -162,6 +166,7 @@
                   value="Press to browse for a specific firmware version"/>
         <property key="ToolFirmwareOption.UseLatestFirmware" value="true"/>
         <property key="debugoptions.useswbreakpoints" value="false"/>
+        <property key="firmware.download.all" value="false"/>
         <property key="hwtoolclock.frcindebug" value="false"/>
         <property key="memories.aux" value="false"/>
         <property key="memories.bootflash" value="true"/>
