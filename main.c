@@ -2,6 +2,8 @@
 #include "DataTypes.h"
 #include "RS485.h"
 #include "Console.h"
+#include "I2C.h"
+#include "Eeprom.h"
 
 #pragma config FOSC = HS2    // Clock in external mode with range including 10MHz   [HS2]INTIO2
 #pragma config SOSCSEL = DIG
@@ -15,17 +17,6 @@
 #pragma config CP2 = OFF
 #pragma config CP3 = OFF
 #pragma config CPD = OFF     // EEPROM read protect
-
-#define EEPROM_ADDR_ADDR 1                // 4 bytes with the address used in the program itself
-#define EEPROM_ADDR_HW_VERSION 64         // Used to print this info when starting up.
-#define EEPROM_ADDR_FW_VERSION_MAJOR 65
-#define EEPROM_ADDR_FW_VERSION_MINOR 66
-#define EEPROM_ADDR_FW_VERSION_BUILD 67
-#define EEPROM_ADDR_CRC 68                // This 4 bytes are the checksum of the program code. should be match
-#define EEPROM_ADDR_START_ADDR 72         // Not in use
-#define EEPROM_ADDR_SAFETY_BYTE 74        // Challenge for app to reset
-#define EEPROM_ADDR_TIME_IN_BOOT 75       // Time to wait till timeout.
-#define EEPROM_ADDR_STATUS 76             // Status of code with crc
 
 #define START_CODE 0x00000000ul
 #define END_CODE (1ul * PROG_NUM_OF_BLOCKS * BLOCK_SIZE)
@@ -50,9 +41,6 @@ void interrupt_at_low_vector(void) {
 
 unsigned8 valid_code(void);
 unsigned32 calculate_check(unsigned32 program_start, unsigned32 program_stop);
-void read_eeprom(unsigned8 *data, unsigned16 source_address, unsigned16 number);
-unsigned8 read_eeprom_byte(unsigned16 address);
-void write_eeprom(unsigned8 *data, unsigned16 source_address, unsigned16 size); 
 void unlock_and_activate(void);
 void start_counter(void);
 void reset_counter(void);
@@ -73,7 +61,7 @@ enum {
 #define RECV 0
 #define PROCESS_SEND 1
 #define BLVERSION_MAJOR 2
-#define BLVERSION_MINOR 3
+#define BLVERSION_MINOR 4
 
 unsigned32 tick_counter = 0ul;
 unsigned32 bootloader_timeout = 0ul;
@@ -81,9 +69,9 @@ boolean processing = true;
 boolean reset_bsc = false;
 unsigned8 version[3];
 unsigned8 status = 0;
+boolean status_led = true;
 
-void main(void)
-{
+void main(void) {
     unsigned8 safety_counter = read_eeprom_byte(EEPROM_ADDR_SAFETY_BYTE);
     unsigned8 mode = RECV;
 
@@ -91,22 +79,28 @@ void main(void)
     WDTCONbits.SWDTEN = 0;
 
     read_eeprom(module_address, EEPROM_ADDR_ADDR, 4); // Read address
-    read_eeprom(version, EEPROM_ADDR_FW_VERSION_MAJOR, 3); // Read version
+    read_eeprom(version, EEPROM_ADDR_BFW_VERSION_MAJOR, 2); // Read bootloader version
+    if (version[0] != BLVERSION_MAJOR || version[1] != BLVERSION_MINOR) {
+        version[0] = BLVERSION_MAJOR;
+        version[1] = BLVERSION_MINOR;
+        write_eeprom(version, EEPROM_ADDR_BFW_VERSION_MAJOR, 2);
+    }
+    read_eeprom(version, EEPROM_ADDR_FW_VERSION_MAJOR, 3); // Read application version
 
     init_uart();
     init_debug_uart();
+    printf("\r\n\r\n--\r\nBLO\r\n");
     
-    debug_print_str("\r\n\r\n--\r\nBLO", 1);
-    debug_print_str("\r\nBVE ", 1);
-    debug_print_byte(BLVERSION_MAJOR, 1);
-    debug_print_str(".", 1);
-    debug_print_byte(BLVERSION_MINOR, 1);
+    init_i2c();
+    write_orange_status_led(status_led);
+    
+    printf("BVE %u.%u\r\n", BLVERSION_MAJOR, BLVERSION_MINOR);
 
     processing = false;
     reset_bsc = false;
     if ((module_address[0] == 0 || module_address[0] == 255) && safety_counter > 0) {
         // Device not initialized: Calculate application CRC and jump to application
-        debug_print_str("\r\nFLO INIT", 1);
+        printf("FLO INIT\r\n");
         if (safety_counter > 5) {
             // However, only try a few times
             reset_bsc = true;
@@ -114,49 +108,36 @@ void main(void)
         calculate_and_save_crc();
     } else if (safety_counter == 0) {
         // Safety counter at 0, application did not start.
-        debug_print_str("\r\nFLO SFAIL", 1);
+        printf("FLO SFAIL\r\n");
         processing = true;
         bootloader_timeout = TIME_IN_BOOT_SAFETY_FAIL;
     } else {
         // Everything as expected, using configured timeout
-        debug_print_str("\r\nFLO NORM", 1);
+        printf("FLO NORM\r\n");
         bootloader_timeout = read_eeprom_byte(EEPROM_ADDR_TIME_IN_BOOT);
         if (bootloader_timeout > 0ul) {
             processing = true;
         }
     }
     
-    debug_print_str("\r\nBLT ", 1);
-    debug_print_long(bootloader_timeout, 1);
-    debug_print_str("\r\nBSC ", 1);
-    debug_print_long(safety_counter, 1);
-    debug_print_str("\r\nFWV ", 1);
-    for (unsigned8 i = 0; i < 3; i++) {
-        debug_print_byte(version[i], 1);
-        if (i < 2) {
-            debug_print_str(".", 1);
-        }
-    }
-    debug_print_str("\r\nADR ", 1);
-    for (unsigned8 i = 0; i < 4; i++) {
-        debug_print_byte(module_address[i], 1);
-        if (i < 3) {
-            debug_print_str(".", 1);
-        }
-    }
+    printf("BLT %lu\r\n", bootloader_timeout);
+    printf("BSC %u\r\n", safety_counter);
+    printf("FWV %u.%u.%u\r\n", version[0], version[1], version[2]);
+    printf("ADR %u.%u.%u.%u\r\n", module_address[0], module_address[1], module_address[2], module_address[3]);
   
     bootloader_timeout <<= 1; // Because the tick is every half second
     start_counter();
 
-    debug_print_str("\r\nPSG\r\n", 1);
+    printf("PSG\r\n");
     while (processing) {
         ClrWdt(); // Clear the watchdog timer
         
         if (INTCONbits.TMR0IF == 1) {
-            // TODO: Add "in bootloader"-indication
+            status_led = !status_led;
+            write_orange_status_led(status_led);
             reset_counter();
             if (tick_counter++ >= bootloader_timeout) {
-                debug_print_str("BTO\r\n", 1);
+                printf("BTO\r\n");
                 processing = false;
             }
         }
@@ -175,9 +156,7 @@ void main(void)
                 }
 
                 send_data();
-                debug_print_str(" ", 1);
-                debug_print_byte(error, 1);
-                debug_print_str("\r\n", 1);
+                printf(" %u\r\n", error);
                 
             default:
                 mode = RECV;
@@ -185,24 +164,25 @@ void main(void)
         }
     }
 
-    debug_print_str("STP\r\n", 1);
+    write_orange_status_led(false);
+    printf("STP\r\n");
 
     if (!valid_code()) {
-        debug_print_str("IVC\r\n", 1);
+        printf("IVC\r\n");
         Reset();
     }
 
     if (reset_bsc) {
-        debug_print_str("RSC\r\n", 1);
+        printf("RSC\r\n");
         safety_counter = 5;
         write_eeprom(&safety_counter, EEPROM_ADDR_SAFETY_BYTE, 1);
     } else if (safety_counter > 0) {
-        debug_print_str("DSC\r\n", 1);
+        printf("DSC\r\n");
         safety_counter -= 1;
         write_eeprom(&safety_counter, EEPROM_ADDR_SAFETY_BYTE, 1);
     }
     
-    debug_print_str("GTA\r\n\r\n\r\n", 1);
+    printf("GTA\r\n\r\n\r\n");
 
     ClrWdt();
     WDTCONbits.SWDTEN = 1;
@@ -223,8 +203,7 @@ unsigned8 save_block(void) {
     addr.bytes[1] = received_data[0];
     addr.bytes[0] = received_data[1];  
     
-    debug_print_str(" ", 1);
-    debug_print_long(addr.value, 1);
+    printf(" %lu", addr.value);
 
     page_to_erase = addr.LW;
 
@@ -308,7 +287,7 @@ unsigned8 command_crc_check(unsigned8 place) {
     }
     
     if (error != NO_ERROR) {
-        debug_print_str(" CRE", 1);
+        printf(" CRE\r\n");
         return true;
     }
     
@@ -321,9 +300,7 @@ void process_data() {
         error = ERROR_CMD_NOT_RECOGNIZED;
     }
 
-    debug_print_str("RCV ", 1);
-    debug_print_chr(received_command_first, 1);
-    debug_print_chr(received_command_second, 1);
+    printf("RCV %c%c", received_command_first, received_command_second);
 
     switch(received_command_second){
         case 'N':
@@ -451,40 +428,6 @@ unsigned32 calculate_check(unsigned32 program_start, unsigned32 program_stop) {
 
 #pragma code
 
-void read_eeprom(unsigned8 *data, unsigned16 source_address, unsigned16 num) {
-    unsigned16 i;
-    
-    for(i = 0; i < num; i++) {
-        EEADR = (unsigned8)source_address;
-        EEADRH = (unsigned8)(source_address >> 8);
-        EECON1 = 0b00000000; // EEPROM read mode
-        EECON1bits.RD = 1;
-        Nop();
-        data[i] = EEDATA;                    
-        
-        source_address++;
-    }
-}
-
-unsigned8 read_eeprom_byte(unsigned16 address) {
-    unsigned8 result;
-    read_eeprom(&result, address, 1);
-    return result;
-}
-
-void write_eeprom(unsigned8 *data, unsigned16 source_address, unsigned16 size) {
-    unsigned16 i;
-    for(i = 0; i < size; i++) {
-        EEADR = (unsigned8)source_address;
-        EEADRH = (unsigned8)(source_address >> 8);
-        EEDATA = data[i];
-
-        EECON1 = 0b00000100;    // EEPROM Write mode
-        unlock_and_activate();
-        source_address++;
-    }
-}
-
 void erase_program_memory(unsigned16 page) {
     ClrWdt();
     TBLPTR = ((unsigned24)page << 6);
@@ -529,22 +472,3 @@ void read_program_memory(unsigned8 *data, ureg32 source_address, unsigned16 num)
         data[i] = TABLAT;
     }
 }
-
-void unlock_and_activate(void) {
-    boolean interrupts_enabled = INTCONbits.GIE;
-    INTCONbits.GIE = 0; // Make certain interrupts disabled for unlock process.
-    
-    // Now unlock sequence to set WR (make sure interrupts are disabled before executing this)
-    asm("MOVLW 0x55");
-    asm("MOVWF EECON2");
-    asm("MOVLW 0xAA");
-    asm("MOVWF EECON2");
-    asm("BSF EECON1, 1"); // Performs write
-
-    if (interrupts_enabled) {
-        INTCONbits.GIE = 1;
-    }
-    
-    while(EECON1bits.WR); // Wait until complete (relevant when programming EEPROM, not important when programming flash since processor stalls during flash program)    
-    EECON1bits.WREN = 0; // Good practice now to clear the WREN bit, as further protection against any accidental activation of self write/erase operations.
-}    

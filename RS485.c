@@ -58,13 +58,6 @@ void init_uart() {
     send_data_counter = 0;
 }
 
-void putch(char c) {
-    // This function is responsible for sending one character out to your USART2
-    // (or whatever output device you might have, such as LCD, so that you can use DBGPRINTF()
-    while (!TXSTA2bits.TRMT) {}
-    TXREG2 = c;
-}
-
 unsigned8 receive_data() {
     static unsigned8 state = RECV_START1;
     unsigned8 c;

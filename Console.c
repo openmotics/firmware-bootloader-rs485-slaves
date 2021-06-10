@@ -22,51 +22,9 @@ void init_debug_uart() {
     RCSTA2bits.CREN = 1;
 }
 
-void debug_print_byte(unsigned8 data,char blocking){
-    char text[4];
-    sprintf(text, "%d", data);
-    debug_print_str(text, blocking);
-}
-
-void debug_print_long(unsigned32 data,char blocking) {
-    char text[12];
-    sprintf(text, "%d", data);
-    debug_print_str(text, blocking);
-}
-
-void debug_print_chr(unsigned8 data, char blocking) {
-    char text[2];
-    text[0] = data;
-    text[1] = '\0';
-    debug_print_str(text, blocking);
-}
-
-void debug_print_str(char* text, char blocking) {
-    if (blocking) {
-        while (*text) {
-            // Transmit a byte
-            if (CONS_TRMTDONE != 0) {
-                CONS_TXREG = *text++;
-            }
-        } 
-    } else {
-        while (*text) {
-            // Transmit a byte
-            *cs_write = *text++;
-            if (cs_write == cs_end) {
-                cs_write = cs_begin; // Increment the write pointer
-            } else {
-                cs_write++;
-            }
-        
-            if (cs_write == cs_read) {
-                if (cs_write == cs_begin) {
-                    cs_write = cs_end;
-                } else {
-                    cs_write--;
-                }
-                *cs_write = '#';
-            }
-        } 
-    }
+void putch(char c)
+{
+    while(CONS_TRMTDONE == 0);
+    CONS_TXREG = c;
+    while(CONS_TRMTDONE == 0);
 }
