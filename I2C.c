@@ -79,18 +79,18 @@ void write_orange_status_led(boolean on) {
     if (module_type == 1) {
         if (on) {
             write_register(CHIP_1, OUTPUT_REGISTER_1, 0b11001111);
-            //                            GR leds
+            //                                            GR leds
         } else {
             write_register(CHIP_1, OUTPUT_REGISTER_1, 0b11111111);
-            //                            GR leds
+            //                                            GR leds
         }
     } else if (module_type == 2) {
         if (on) {
             write_register(CHIP_1, OUTPUT_REGISTER_1, 0b11111001);
-            //                               GR leds
+            //                                               GR leds
         } else {
             write_register(CHIP_1, OUTPUT_REGISTER_1, 0b11111111);
-            //                               GR leds
+            //                                               GR leds
         }
     }
 }
